@@ -29,6 +29,8 @@ const CONFIG = {
   }
 };
 
+const API_BASE = "/api";
+
 const LS = {
   bookings: "vb_bookings_v1",     // { "YYYY-MM-DD": { "HH:MM": bookingObj } }
   overrides: "vb_overrides_v1",   // { "YYYY-MM-DD": { dayOff: bool, blocked: ["HH:MM"] } }
@@ -41,6 +43,34 @@ const LS = {
 const LEGACY_GALLERY_KEYS = ["vb_gallery", "vb_photos", "vb_gallery_v0"];
 
 const SYNC_KEYS = new Set([LS.bookings, LS.overrides, LS.queue, LS.gallery]);
+
+async function persistState(key, data){
+  if(typeof fetch === "undefined") return;
+  try{
+    await fetch(`${API_BASE}/state/${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data }),
+    });
+  }catch(err){
+    console.warn("Unable to sync with server", err);
+  }
+}
+
+async function syncFromServer(){
+  if(typeof fetch === "undefined") return;
+  try{
+    const res = await fetch(`${API_BASE}/state`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if(data.bookings) setBookings(data.bookings, { sync:false });
+    if(data.overrides) setOverrides(data.overrides, { sync:false });
+    if(data.queue) setQueue(data.queue, { sync:false });
+    if(data.gallery) setGalleryPhotos(data.gallery, { sync:false });
+  }catch(err){
+    console.warn("Unable to load state from server", err);
+  }
+}
 
 /* ----------------- helpers ----------------- */
 const $ = (sel) => document.querySelector(sel);
@@ -139,20 +169,23 @@ function clampDateInputs(){
 function getBookings(){
   return loadJSON(LS.bookings, {});
 }
-function setBookings(b){
+function setBookings(b, opts={ sync:true }){
   saveJSON(LS.bookings, b);
+  if(opts.sync !== false) persistState("bookings", b);
 }
 function getOverrides(){
   return loadJSON(LS.overrides, {});
 }
-function setOverrides(o){
+function setOverrides(o, opts={ sync:true }){
   saveJSON(LS.overrides, o);
+  if(opts.sync !== false) persistState("overrides", o);
 }
 function getQueue(){
   return loadJSON(LS.queue, []);
 }
-function setQueue(q){
+function setQueue(q, opts={ sync:true }){
   saveJSON(LS.queue, q);
+  if(opts.sync !== false) persistState("queue", q);
 }
 
 function migrateLegacyGallery(){
@@ -175,8 +208,9 @@ function migrateLegacyGallery(){
 function getGalleryPhotos(){
   return migrateLegacyGallery();
 }
-function setGalleryPhotos(arr){
+function setGalleryPhotos(arr, opts={ sync:true }){
   saveJSON(LS.gallery, arr);
+  if(opts.sync !== false) persistState("gallery", arr);
 }
 
 function markTaken(dateISO, timeHHMM, bookingObj){
@@ -959,9 +993,10 @@ function setupStorageSync(){
 }
 
 /* ----------------- init ----------------- */
-function init(){
+async function init(){
   hydrateLinks();
   setupMobileMenu();
+  await syncFromServer();
   renderGallery();
   renderPhotoManager();
   clampDateInputs();
