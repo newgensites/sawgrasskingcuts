@@ -883,6 +883,24 @@ function hydrateQueueTimes(dateISO){
   });
 }
 
+function markDayAvailableFromQueue(){
+  const dateISO = $("#qDate").value;
+  if(!dateISO){
+    alert("Pick a date first.");
+    return;
+  }
+
+  const ov = getOverrides();
+  if(ov[dateISO]){
+    delete ov[dateISO];
+    setOverrides(ov);
+  }
+
+  $("#aDate").value = dateISO;
+  hydrateAdminTimes(dateISO);
+  refreshBookingPickers(dateISO);
+}
+
 /* ----------------- misc ----------------- */
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, s => ({
@@ -954,6 +972,7 @@ function init(){
   // queue
   $("#addToQueue").addEventListener("click", (e)=>{ e.preventDefault(); addToQueue(); });
   $("#qDate").addEventListener("change", (e)=> hydrateQueueTimes(e.target.value));
+  $("#markDayAvailable").addEventListener("click", (e)=>{ e.preventDefault(); markDayAvailableFromQueue(); });
 
   // availability editor
   $("#aDate").addEventListener("change", (e)=> hydrateAdminTimes(e.target.value));
