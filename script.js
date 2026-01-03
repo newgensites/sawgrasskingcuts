@@ -33,7 +33,8 @@ const LS = {
   bookings: "vb_bookings_v1",     // { "YYYY-MM-DD": { "HH:MM": bookingObj } }
   overrides: "vb_overrides_v1",   // { "YYYY-MM-DD": { dayOff: bool, blocked: ["HH:MM"] } }
   queue: "vb_queue_v1",           // [ {id,...} ]
-  adminUnlocked: "vb_admin_unlocked_v1"
+  adminUnlocked: "vb_admin_unlocked_v1",
+  gallery: "vb_gallery_v1",
 };
 
 /* ----------------- helpers ----------------- */
@@ -147,6 +148,13 @@ function getQueue(){
 }
 function setQueue(q){
   saveJSON(LS.queue, q);
+}
+
+function getGalleryPhotos(){
+  return loadJSON(LS.gallery, []);
+}
+function setGalleryPhotos(arr){
+  saveJSON(LS.gallery, arr);
 }
 
 function markTaken(dateISO, timeHHMM, bookingObj){
@@ -266,6 +274,85 @@ function setupMobileMenu(){
   if(menu){
     menu.querySelectorAll("a").forEach(a=>{
       a.addEventListener("click", ()=> menu.classList.remove("show"));
+    });
+  }
+}
+
+/* ----------------- UI: gallery ----------------- */
+function renderGallery(){
+  const grid = $("#galleryGrid");
+  const hint = $("#galleryHint");
+  if(!grid) return;
+
+  const photos = getGalleryPhotos();
+  grid.innerHTML = "";
+
+  const items = photos.length ? photos : Array.from({ length: 6 }, ()=> null);
+
+  items.forEach((src, idx)=>{
+    const cell = document.createElement("div");
+    cell.className = "photo";
+
+    if(src){
+      cell.classList.add("has-img");
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = `Recent cut ${idx + 1}`;
+      cell.title = "Open full photo";
+      cell.appendChild(img);
+      cell.addEventListener("click", ()=> window.open(src, "_blank"));
+    } else {
+      cell.textContent = "Photo Slot";
+    }
+
+    grid.appendChild(cell);
+  });
+
+  if(hint){
+    hint.textContent = photos.length
+      ? "Recent uploads are saved on this device. Tap to open."
+      : "No uploads yet. Add fresh cuts in the admin desk.";
+  }
+}
+
+function setPhotoUploadNote(msg, ok=false){
+  const el = $("#photoUploadNote");
+  if(!el) return;
+  el.textContent = msg || "";
+  el.classList.toggle("ok", Boolean(ok));
+  el.classList.toggle("error", Boolean(msg && !ok));
+}
+
+function handlePhotoFile(file, sourceLabel){
+  if(!file){
+    setPhotoUploadNote("No file selected.", false);
+    return;
+  }
+  if(!file.type.startsWith("image/")){
+    alert("Please choose an image file.");
+    setPhotoUploadNote("Only image files are supported.", false);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const photos = getGalleryPhotos();
+    photos.unshift(e.target.result);
+    setGalleryPhotos(photos.slice(0, 9));
+    renderGallery();
+    setPhotoUploadNote(`${sourceLabel || "Upload"} added to gallery.`, true);
+  };
+  reader.readAsDataURL(file);
+}
+
+function bindUploadControl(btnId, inputId, label){
+  const btn = $(btnId);
+  const input = $(inputId);
+  if(btn && input){
+    btn.addEventListener("click", (e)=>{ e.preventDefault(); input.click(); });
+    input.addEventListener("change", ()=>{
+      handlePhotoFile(input.files[0], label);
+      input.value = "";
     });
   }
 }
@@ -746,6 +833,7 @@ function escapeHtml(str){
 function init(){
   hydrateLinks();
   setupMobileMenu();
+  renderGallery();
   clampDateInputs();
 
   // defaults
@@ -786,6 +874,11 @@ function init(){
     setTimeout(()=> $("#adminSaveNote").textContent = "", 1200);
     refreshBookingPickers($("#aDate").value);
   });
+
+  // gallery uploads
+  bindUploadControl("#btnTakePhoto", "#inputTakePhoto", "Photo");
+  bindUploadControl("#btnUploadFile", "#inputUploadFile", "Upload");
+  bindUploadControl("#btnCameraRoll", "#inputCameraRoll", "Camera roll");
 
   // apply lock state
   applyAdminLock();

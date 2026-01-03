@@ -173,14 +173,8 @@
         <h2>Recent Work</h2>
         <p class="section-sub">Real cuts from the Sawgrass Kings crew. Add your latest photos anytime.</p>
 
-        <div class="gallery">
-          <div class="photo">Photo Slot</div>
-          <div class="photo">Photo Slot</div>
-          <div class="photo">Photo Slot</div>
-          <div class="photo">Photo Slot</div>
-          <div class="photo">Photo Slot</div>
-          <div class="photo">Photo Slot</div>
-        </div>
+        <div id="galleryGrid" class="gallery" aria-live="polite"></div>
+        <p class="muted tiny" id="galleryHint">Add fresh cuts in the admin desk to keep this gallery current.</p>
       </div>
     </section>
 
@@ -448,6 +442,24 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="panel admin-only" data-admin id="photoUploader">
+          <h3>Recent work photos</h3>
+          <p class="muted">Update the gallery with new cuts once the desk is unlocked.</p>
+
+          <div class="upload-grid">
+            <button class="btn full" id="btnTakePhoto">Take photo</button>
+            <button class="ghost full" id="btnUploadFile">Upload file</button>
+            <button class="ghost full" id="btnCameraRoll">Upload from camera roll</button>
+          </div>
+
+          <p class="tiny muted">Photos save to this browser only (localStorage). New uploads appear instantly in Recent Work.</p>
+          <p class="tiny muted" id="photoUploadNote"></p>
+
+          <input type="file" accept="image/*" capture="environment" id="inputTakePhoto" hidden />
+          <input type="file" accept="image/*" id="inputUploadFile" hidden />
+          <input type="file" accept="image/*" id="inputCameraRoll" hidden />
         </div>
 
       </div>
