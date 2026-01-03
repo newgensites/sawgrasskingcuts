@@ -9,23 +9,23 @@
    ========================================================= */
 
 const CONFIG = {
-  SHOP_NAME: "VASEAN Barbershop",
-  SHOP_PHONE_E164: "+17540000000", // <- change
-  SHOP_PHONE_DISPLAY: "(754) 000-0000", // <- change
-  SHOP_EMAIL: "info@email.com", // <- change
+  SHOP_NAME: "Sawgrass Kings Cuts",
+  SHOP_PHONE_E164: "+19546260836", // main shop line
+  SHOP_PHONE_DISPLAY: "(954) 626-0836", // shown on page
+  SHOP_EMAIL: "info@sawgrasskingscuts.com",
   ADMIN_PIN: "1234", // <- change (client-side only)
   SLOT_MINUTES: 30,
   MAX_DAYS_AHEAD: 30,
 
   // Booking hours (24h). Edit to match shop schedule.
   HOURS_BY_DAY: {
-    0: null,                 // Sun closed
-    1: ["10:00", "19:00"],   // Mon
-    2: ["10:00", "19:00"],   // Tue
-    3: ["10:00", "19:00"],   // Wed
-    4: ["10:00", "20:00"],   // Thu
-    5: ["10:00", "21:00"],   // Fri
-    6: ["10:00", "21:00"],   // Sat
+    0: ["11:00", "15:00"],   // Sun
+    1: ["10:00", "19:30"],   // Mon
+    2: null,                  // Tue closed
+    3: ["10:00", "19:30"],   // Wed
+    4: ["10:00", "19:30"],   // Thu
+    5: ["10:00", "20:00"],   // Fri
+    6: ["10:00", "20:00"],   // Sat
   }
 };
 
