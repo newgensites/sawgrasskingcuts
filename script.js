@@ -430,7 +430,19 @@ function applyAdminLock(){
   document.querySelectorAll("[data-admin]").forEach(el=>{
     el.classList.toggle("is-locked", locked);
   });
-  $("#pinNote").textContent = locked
+  const pinNote = $("#pinNote");
+  const lockBtn = $("#lockAdmin");
+  const lockStatus = $("#lockStatus");
+
+  lockBtn.disabled = locked;
+  lockBtn.setAttribute("aria-pressed", (!locked).toString());
+
+  lockStatus.textContent = locked
+    ? "Admin desk locked."
+    : "Admin tools unlocked on this device.";
+  lockStatus.classList.toggle("ok", !locked);
+
+  pinNote.textContent = locked
     ? "Locked. Enter PIN to unlock."
     : "Unlocked on this device (localStorage).";
 }
