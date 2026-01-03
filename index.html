@@ -234,84 +234,121 @@
         <h2>Contact</h2>
         <p class="section-sub">Call, text, or send a booking request — we’ll confirm availability.</p>
 
-        <div class="grid-2">
-          <div class="panel">
-            <h3>Direct</h3>
-            <div class="kv">
+        <div class="grid-2 contact-grid">
+          <div class="panel contact-card">
+            <div class="contact-head">
+              <div>
+                <h3>Direct</h3>
+                <p class="muted tiny">Call or email — we’ll get back fast.</p>
+              </div>
+              <div class="pill">Sunrise, FL</div>
+            </div>
+
+            <div class="kv tight">
               <div class="k">Phone</div>
               <div class="v"><a id="phoneLinkContact" href="#">(954) 626-0836</a></div>
             </div>
-            <div class="kv">
+            <div class="kv tight">
               <div class="k">Email</div>
               <div class="v"><a id="emailLinkContact" href="#">info@sawgrasskingscuts.com</a></div>
+            </div>
+
+            <div class="form-grid contact-form">
+              <div>
+                <label class="label">Name</label>
+                <input class="input" id="cName" placeholder="Your name" />
+              </div>
+              <div>
+                <label class="label">Phone</label>
+                <input class="input" id="cPhone" placeholder="(555) 555-5555" inputmode="tel" />
+              </div>
             </div>
 
             <div class="cta-row">
               <a class="btn" id="callNowContact" href="#">Call Now</a>
               <a class="ghost" href="#book">Book a Date</a>
+              <a class="ghost" id="emailRequest" href="#">Email Request</a>
             </div>
 
             <div class="muted tiny">
-              Tip: For the fastest confirmation, include service, preferred time, and any notes.
+              Tip: Include the service, material, or photos if possible for a faster reply.
             </div>
           </div>
 
-          <div class="panel" id="book">
+          <div class="panel booking-card" id="book">
             <h3>Book a Date & Time</h3>
             <p class="muted">
-              Select a date to see open times. This sends a booking request by text so the shop can confirm.
+              Tap a date to view open times. A text is pre-filled so we can confirm quickly.
             </p>
 
-            <div class="form-grid">
-              <div>
-                <label class="label">Name</label>
-                <input class="input" id="bName" placeholder="Your name" />
-              </div>
-              <div>
-                <label class="label">Phone</label>
-                <input class="input" id="bPhone" placeholder="(555) 555-5555" inputmode="tel" />
-              </div>
-
-              <div class="fullrow">
-                <label class="label">Service</label>
-                <select class="input" id="bService">
-                  <option value="Haircut">Haircut</option>
-                  <option value="Haircut + Beard">Haircut + Beard</option>
-                  <option value="Beard Only">Beard Only</option>
-                  <option value="Kids Cut">Kids Cut</option>
-                </select>
+            <div class="booking-layout">
+              <div class="calendar">
+                <div class="calendar-head">
+                  <button class="ghost mini-btn" id="calPrev" aria-label="Previous month">‹</button>
+                  <div class="calendar-month" id="calLabel"></div>
+                  <button class="ghost mini-btn" id="calNext" aria-label="Next month">›</button>
+                </div>
+                <div class="calendar-legend tiny muted">
+                  <span><span class="dot dot-open"></span>Available</span>
+                  <span><span class="dot dot-full"></span>Unavailable</span>
+                  <span><span class="dot dot-closed"></span>Closed/Blocked</span>
+                </div>
+                <div class="calendar-grid" id="calendarDays"></div>
               </div>
 
-              <div class="fullrow">
-                <div class="split">
+              <div class="booking-fields">
+                <div class="form-grid">
                   <div>
-                    <label class="label">Date</label>
-                    <input class="input" type="date" id="bDate" />
+                    <label class="label">Name</label>
+                    <input class="input" id="bName" placeholder="Your name" />
                   </div>
                   <div>
-                    <label class="label">Time</label>
-                    <select class="input" id="bTime">
-                      <option value="">Select a date first</option>
+                    <label class="label">Phone</label>
+                    <input class="input" id="bPhone" placeholder="(555) 555-5555" inputmode="tel" />
+                  </div>
+
+                  <div class="fullrow">
+                    <label class="label">Service</label>
+                    <select class="input" id="bService">
+                      <option value="Haircut">Haircut</option>
+                      <option value="Haircut + Beard">Haircut + Beard</option>
+                      <option value="Beard Only">Beard Only</option>
+                      <option value="Kids Cut">Kids Cut</option>
                     </select>
                   </div>
+
+                  <div class="fullrow">
+                    <div class="split">
+                      <div>
+                        <label class="label">Date</label>
+                        <input class="input" type="date" id="bDate" aria-label="Selected booking date" />
+                      </div>
+                      <div>
+                        <label class="label">Time</label>
+                        <select class="input" id="bTime">
+                          <option value="">Select a date first</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="fullrow">
+                    <label class="label">Notes</label>
+                    <textarea class="input" id="bNotes" rows="4" placeholder="Anything we should know? (ex: low fade, beard shape-up, design, etc.)"></textarea>
+                  </div>
+
+                  <div class="fullrow">
+                    <div class="muted tiny">
+                      <strong>Available booking hours:</strong> <span id="hoursText"></span><br/>
+                      <span id="takenText" class="muted"></span>
+                    </div>
+                  </div>
+
+                  <div class="fullrow">
+                    <button class="btn full" id="sendBookingText">Send Booking Text</button>
+                    <div class="muted tiny center" id="smsHint"></div>
+                  </div>
                 </div>
-              </div>
-
-              <div class="fullrow">
-                <label class="label">Notes</label>
-                <textarea class="input" id="bNotes" rows="4" placeholder="Anything we should know? (ex: low fade, beard shape-up, design, etc.)"></textarea>
-              </div>
-
-              <div class="fullrow">
-                <div class="muted tiny">
-                  <strong>Available booking hours:</strong> <span id="hoursText"></span><br/>
-                  <span id="takenText" class="muted"></span>
-                </div>
-              </div>
-
-              <div class="fullrow">
-                <button class="btn full" id="sendBookingText">Send Booking Text</button>
-                <div class="muted tiny center" id="smsHint"></div>
               </div>
             </div>
           </div>

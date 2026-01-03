@@ -160,6 +160,7 @@ p{margin:0 0 10px}
 }
 
 .kv{display:grid; grid-template-columns: 140px 1fr; gap:10px; margin:10px 0}
+.kv.tight{margin:6px 0}
 .k{color:var(--muted); font-size:13px}
 .v{font-weight:700}
 .cta-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
@@ -225,6 +226,38 @@ textarea.input{resize:vertical}
 .admin-grid{display:grid; grid-template-columns: 1fr 2fr; gap:14px; margin-top:12px}
 .admin-only.is-locked{display:none}
 
+/* contact + booking */
+.contact-grid{align-items:start}
+.contact-card{display:flex; flex-direction:column; gap:8px}
+.contact-head{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap}
+.contact-form{margin:4px 0 6px}
+.booking-card{display:flex; flex-direction:column; gap:12px}
+.booking-layout{display:grid; grid-template-columns: 1.05fr 1.35fr; gap:14px; align-items:start}
+.calendar{border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px; background:rgba(0,0,0,.25)}
+.calendar-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px}
+.mini-btn{padding:8px 10px; border-radius:10px; line-height:1; font-weight:900}
+.calendar-month{font-weight:900; letter-spacing:.3px}
+.calendar-legend{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px}
+.day-name{color:var(--muted); font-size:12px; text-align:center; font-weight:800}
+.dot{display:inline-block; width:10px; height:10px; border-radius:999px; margin-right:6px; background:var(--muted)}
+.dot-open{background: rgba(46, 204, 113, .9)}
+.dot-full{background: rgba(255,92,122,.9)}
+.dot-closed{background: rgba(255,255,255,.35)}
+.calendar-grid{display:grid; grid-template-columns: repeat(7,1fr); gap:6px; font-size:13px}
+.day{border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 8px; text-align:center; cursor:pointer; background:rgba(255,255,255,.02); position:relative}
+.day .date{font-weight:800; display:block}
+.day .status{font-size:11px; color:var(--muted); margin-top:4px; min-height:14px; display:block}
+.day.unavailable{opacity:.4; cursor:not-allowed}
+.day.closed{border-style:dashed; color:var(--muted)}
+.day.closed .status{color:var(--muted)}
+.day.available{border-color: rgba(46, 204, 113, .4);}
+.day.available .status{color: rgba(46, 204, 113, .95)}
+.day.full{border-color: rgba(255,92,122,.35);}
+.day.full .status{color: rgba(255,92,122,.95)}
+.day.today{box-shadow: inset 0 0 0 1px rgba(255,255,255,.32)}
+.day.selected{border-color: rgba(177,31,59,.85); background: rgba(177,31,59,.12);}
+.booking-fields{border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px; background:rgba(255,255,255,.02)}
+
 .table-wrap{overflow:auto; border-radius:16px; border:1px solid rgba(255,255,255,.12)}
 .table{width:100%; border-collapse:collapse; min-width:720px; background: rgba(0,0,0,.25)}
 .table th,.table td{padding:12px 12px; border-bottom:1px solid rgba(255,255,255,.10); vertical-align:top}
@@ -262,4 +295,5 @@ textarea.input{resize:vertical}
   .hamburger{display:inline-flex}
   .mobile-menu.show{display:block}
   .times-grid{grid-template-columns: repeat(3,1fr)}
+  .booking-layout{grid-template-columns: 1fr}
 }
