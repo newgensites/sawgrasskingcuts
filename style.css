@@ -160,6 +160,7 @@ p{margin:0 0 10px}
 }
 
 .kv{display:grid; grid-template-columns: 140px 1fr; gap:10px; margin:10px 0}
+.kv.tight{margin:6px 0}
 .k{color:var(--muted); font-size:13px}
 .v{font-weight:700}
 .cta-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
@@ -280,4 +281,5 @@ button[disabled]{opacity:.55; cursor:not-allowed}
   .hamburger{display:inline-flex}
   .mobile-menu.show{display:block}
   .times-grid{grid-template-columns: repeat(3,1fr)}
+  .booking-layout{grid-template-columns: 1fr}
 }
