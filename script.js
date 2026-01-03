@@ -91,6 +91,13 @@ function minutesToTime(min){
   return `${pad(h)}:${pad(m)}`;
 }
 
+function formatTime12(timeHHMM){
+  const [h, m] = timeHHMM.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${pad(m)} ${suffix}`;
+}
+
 function isPastSlot(dateISO, timeHHMM){
   const now = new Date();
   const dt = new Date(`${dateISO}T${timeHHMM}:00`);
@@ -362,7 +369,9 @@ function hydrateBookingTimes(dateISO){
   }
 
   const hours = getHoursForDate(dateISO);
-  $("#hoursText").textContent = hours ? `${hours[0]} – ${hours[1]}` : "Closed on this day.";
+  $("#hoursText").textContent = hours
+    ? `${formatTime12(hours[0])} – ${formatTime12(hours[1])}`
+    : "Closed on this day.";
 
   if(!hours){
     const opt = document.createElement("option");
@@ -391,7 +400,7 @@ function hydrateBookingTimes(dateISO){
     open.forEach(t=>{
       const opt = document.createElement("option");
       opt.value = t;
-      opt.textContent = t;
+      opt.textContent = formatTime12(t);
       sel.appendChild(opt);
     });
   }
@@ -405,7 +414,7 @@ function hydrateBookingTimes(dateISO){
     taken.forEach(t=>{
       const chip = document.createElement("span");
       chip.className = "chip mini";
-      chip.textContent = t;
+      chip.textContent = formatTime12(t);
       chipRow.appendChild(chip);
     });
   }
@@ -436,7 +445,7 @@ function sendBookingSMS(){
 Name: ${name}
 Phone: ${phone}
 Service: ${service}
-Date/Time: ${date} @ ${time}
+Date/Time: ${date} @ ${formatTime12(time)}
 Notes: ${notes || "N/A"}
 
 Please confirm if this time is available.`;
@@ -501,7 +510,7 @@ function renderQueue(){
 
   q.forEach(item=>{
     const tr = document.createElement("tr");
-    const when = `${item.date} @ ${item.time}`;
+    const when = `${item.date} @ ${formatTime12(item.time)}`;
 
     const statusChip =
       item.status === "confirmed" ? `<span class="chip ok">Confirmed</span>` :
@@ -632,7 +641,7 @@ function hydrateAdminTimes(dateISO){
   slots.forEach(t=>{
     const pill = document.createElement("div");
     pill.className = "time-pill";
-    pill.textContent = t;
+    pill.textContent = formatTime12(t);
 
     const disabled = entry.dayOff || entry.blocked.includes(t);
     if(disabled) pill.classList.add("selected");
@@ -715,7 +724,7 @@ function hydrateQueueTimes(dateISO){
   open.forEach(t=>{
     const opt = document.createElement("option");
     opt.value = t;
-    opt.textContent = t;
+    opt.textContent = formatTime12(t);
     sel.appendChild(opt);
   });
 }
