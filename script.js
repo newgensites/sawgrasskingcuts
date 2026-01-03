@@ -209,7 +209,6 @@ function hydrateLinks(){
   $("#callNowHero").href = phoneHref;
   $("#callNowCard").href = phoneHref;
   $("#callNowContact").href = phoneHref;
-  $("#emailRequest").href = emailHref;
 
   $("#smsHint").textContent = `Opens your text app and sends the request to ${CONFIG.SHOP_PHONE_DISPLAY}.`;
   $("#year").textContent = new Date().getFullYear();
@@ -282,104 +281,6 @@ function hydrateBookingTimes(dateISO){
   $("#takenText").textContent = taken.length
     ? `Taken/blocked for this date: ${taken.join(", ")}`
     : `No taken times yet for this date.`;
-}
-
-/* ----------------- UI: booking calendar ----------------- */
-const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-let calendarMonth = null; // Date at start of month
-
-function isWithinBookingRange(iso){
-  const min = todayISO();
-  const max = addDaysISO(min, CONFIG.MAX_DAYS_AHEAD);
-  return iso >= min && iso <= max;
-}
-
-function selectBookingDate(iso){
-  const input = $("#bDate");
-  input.value = iso;
-  hydrateBookingTimes(iso);
-  renderBookingCalendar();
-}
-
-function renderBookingCalendar(){
-  if(!calendarMonth) calendarMonth = new Date();
-  const grid = $("#calendarDays");
-  const label = $("#calLabel");
-  if(!grid || !label) return;
-
-  const year = calendarMonth.getFullYear();
-  const month = calendarMonth.getMonth();
-  const selectedISO = $("#bDate")?.value;
-
-  label.textContent = calendarMonth.toLocaleString(undefined, { month:"long", year:"numeric" });
-  grid.innerHTML = "";
-
-  WEEKDAYS.forEach(d=>{
-    const div = document.createElement("div");
-    div.className = "day-name";
-    div.textContent = d;
-    grid.appendChild(div);
-  });
-
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  // empty slots before first day
-  for(let i=0;i<firstDay;i++){
-    const div = document.createElement("div");
-    grid.appendChild(div);
-  }
-
-  for(let day=1; day<=daysInMonth; day++){
-    const iso = `${year}-${pad(month+1)}-${pad(day)}`;
-    const dayDiv = document.createElement("button");
-    dayDiv.type = "button";
-    dayDiv.className = "day";
-    dayDiv.innerHTML = `<span class="date">${day}</span><span class="status"></span>`;
-
-    const statusEl = dayDiv.querySelector(".status");
-    const within = isWithinBookingRange(iso);
-    const hours = within ? getHoursForDate(iso) : null;
-    const open = within && hours ? availableSlots(iso) : [];
-    const taken = within && hours ? takenSlots(iso) : [];
-    const isToday = iso === todayISO();
-
-    if(!within){
-      dayDiv.classList.add("unavailable");
-      statusEl.textContent = "Out of range";
-      dayDiv.disabled = true;
-    } else if(!hours){
-      dayDiv.classList.add("closed", "unavailable");
-      statusEl.textContent = "Closed";
-      dayDiv.disabled = true;
-    } else if(open.length > 0){
-      dayDiv.classList.add("available");
-      statusEl.textContent = `${open.length} open`;
-    } else if(taken.length > 0){
-      dayDiv.classList.add("full");
-      statusEl.textContent = "Unavailable";
-      dayDiv.disabled = true;
-    } else {
-      dayDiv.classList.add("unavailable");
-      statusEl.textContent = "Unavailable";
-      dayDiv.disabled = true;
-    }
-
-    if(isToday) dayDiv.classList.add("today");
-    if(selectedISO === iso) dayDiv.classList.add("selected");
-
-    if(!dayDiv.disabled){
-      dayDiv.addEventListener("click", ()=> selectBookingDate(iso));
-    }
-
-    grid.appendChild(dayDiv);
-  }
-}
-
-function changeCalendarMonth(delta){
-  if(!calendarMonth) calendarMonth = new Date();
-  calendarMonth.setMonth(calendarMonth.getMonth() + delta, 1);
-  renderBookingCalendar();
 }
 
 function sendBookingSMS(){
@@ -652,7 +553,6 @@ function refreshBookingPickers(dateISO){
   // refresh booking form + admin queue time picker if same date
   if($("#bDate").value === dateISO) hydrateBookingTimes(dateISO);
   if($("#qDate").value === dateISO) hydrateQueueTimes(dateISO);
-  renderBookingCalendar();
 }
 
 function hydrateQueueTimes(dateISO){
@@ -710,21 +610,13 @@ function init(){
   $("#bDate").value = min;
   $("#qDate").value = min;
   $("#aDate").value = min;
-  calendarMonth = new Date(min + "T00:00:00");
 
   hydrateBookingTimes(min);
   hydrateQueueTimes(min);
   hydrateAdminTimes(min);
-  renderBookingCalendar();
 
   // listeners
-  $("#bDate").addEventListener("change", (e)=>{
-    hydrateBookingTimes(e.target.value);
-    calendarMonth = new Date(e.target.value + "T00:00:00");
-    renderBookingCalendar();
-  });
-  $("#calPrev").addEventListener("click", ()=> changeCalendarMonth(-1));
-  $("#calNext").addEventListener("click", ()=> changeCalendarMonth(1));
+  $("#bDate").addEventListener("change", (e)=> hydrateBookingTimes(e.target.value));
   $("#sendBookingText").addEventListener("click", (e)=>{ e.preventDefault(); sendBookingSMS(); });
 
   // admin lock/unlock
