@@ -90,7 +90,7 @@ function saveJSON(key, val){
 function clampDateInputs(){
   const min = todayISO();
   const max = addDaysISO(min, CONFIG.MAX_DAYS_AHEAD);
-  ["#quickDate","#bDate","#qDate","#aDate"].forEach(id=>{
+  ["#bDate","#qDate","#aDate"].forEach(id=>{
     const el = $(id);
     if(!el) return;
     el.min = min;
@@ -197,7 +197,17 @@ function hydrateLinks(){
   $("#emailLinkContact").textContent = CONFIG.SHOP_EMAIL;
   $("#emailLinkContact").href = emailHref;
 
+  $("#phoneLinkHero").textContent = CONFIG.SHOP_PHONE_DISPLAY;
+  $("#phoneLinkHero").href = phoneHref;
+
+  $("#emailLinkHero").textContent = CONFIG.SHOP_EMAIL;
+  $("#emailLinkHero").href = emailHref;
+
+  $("#smsLinkHero").href = smsHref;
+  $("#textNowHero").href = smsHref;
+
   $("#callNowHero").href = phoneHref;
+  $("#callNowCard").href = phoneHref;
   $("#callNowContact").href = phoneHref;
 
   $("#smsHint").textContent = `Opens your text app and sends the request to ${CONFIG.SHOP_PHONE_DISPLAY}.`;
@@ -218,53 +228,6 @@ function setupMobileMenu(){
   menu?.querySelectorAll("a").forEach(a=>{
     a.addEventListener("click", ()=> menu.classList.remove("show"));
   });
-}
-
-/* ----------------- UI: quick booking card ----------------- */
-function renderQuickTimes(dateISO){
-  const grid = $("#quickTimes");
-  const note = $("#quickTimesNote");
-  grid.innerHTML = "";
-
-  if(!dateISO){
-    note.textContent = "Pick a date to see open times.";
-    return;
-  }
-
-  const hours = getHoursForDate(dateISO);
-  $("#hoursText").textContent = hours ? `${hours[0]} – ${hours[1]}` : "Closed on this day.";
-
-  if(!hours){
-    note.textContent = "Closed on this day.";
-    return;
-  }
-
-  const open = availableSlots(dateISO);
-  const taken = takenSlots(dateISO);
-
-  if(open.length === 0){
-    note.textContent = "No open times for this date. Try another date.";
-  } else {
-    note.textContent = "";
-  }
-
-  open.slice(0, 8).forEach(t=>{
-    const b = document.createElement("button");
-    b.className = "time-pill";
-    b.textContent = t;
-    b.addEventListener("click", ()=>{
-      // set main booking form and jump
-      $("#bDate").value = dateISO;
-      hydrateBookingTimes(dateISO);
-      $("#bTime").value = t;
-      location.hash = "#book";
-    });
-    grid.appendChild(b);
-  });
-
-  if(taken.length){
-    note.textContent = note.textContent || `Some times are already taken/blocked.`;
-  }
 }
 
 /* ----------------- UI: booking form ----------------- */
@@ -575,8 +538,7 @@ function clearOverridesForDate(dateISO){
 }
 
 function refreshBookingPickers(dateISO){
-  // refresh quick + booking form + admin queue time picker if same date
-  if($("#quickDate").value === dateISO) renderQuickTimes(dateISO);
+  // refresh booking form + admin queue time picker if same date
   if($("#bDate").value === dateISO) hydrateBookingTimes(dateISO);
   if($("#qDate").value === dateISO) hydrateQueueTimes(dateISO);
 }
@@ -633,18 +595,15 @@ function init(){
 
   // defaults
   const min = todayISO();
-  $("#quickDate").value = min;
   $("#bDate").value = min;
   $("#qDate").value = min;
   $("#aDate").value = min;
 
-  renderQuickTimes(min);
   hydrateBookingTimes(min);
   hydrateQueueTimes(min);
   hydrateAdminTimes(min);
 
   // listeners
-  $("#quickDate").addEventListener("change", (e)=> renderQuickTimes(e.target.value));
   $("#bDate").addEventListener("change", (e)=> hydrateBookingTimes(e.target.value));
   $("#sendBookingText").addEventListener("click", (e)=>{ e.preventDefault(); sendBookingSMS(); });
 
