@@ -37,6 +37,9 @@ const LS = {
   gallery: "vb_gallery_v1",
 };
 
+// older gallery keys that may contain photos from previous visits/devices
+const LEGACY_GALLERY_KEYS = ["vb_gallery", "vb_photos", "vb_gallery_v0"];
+
 const SYNC_KEYS = new Set([LS.bookings, LS.overrides, LS.queue, LS.gallery]);
 
 /* ----------------- helpers ----------------- */
@@ -152,8 +155,25 @@ function setQueue(q){
   saveJSON(LS.queue, q);
 }
 
+function migrateLegacyGallery(){
+  // If current gallery is empty, attempt to pull photos from legacy keys.
+  const current = loadJSON(LS.gallery, []);
+  if(current && current.length) return current;
+
+  for(const key of LEGACY_GALLERY_KEYS){
+    const legacy = loadJSON(key, null);
+    if(Array.isArray(legacy) && legacy.length){
+      // Save a copy under the current key so all devices/tabs pick it up.
+      setGalleryPhotos(legacy);
+      return legacy;
+    }
+  }
+
+  return [];
+}
+
 function getGalleryPhotos(){
-  return loadJSON(LS.gallery, []);
+  return migrateLegacyGallery();
 }
 function setGalleryPhotos(arr){
   saveJSON(LS.gallery, arr);
