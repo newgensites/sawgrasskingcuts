@@ -2,379 +2,441 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sawgrass King Cuts | Premium Grooming in Tallahassee</title>
-  <meta name="description" content="Book a premium grooming experience with Sawgrass King Cuts. Clean fades, sharp beard work, and stress-free scheduling in Tallahassee." />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VASEAN Barbershop | Book Cuts</title>
+  <meta name="description" content="Fresh fades. Clean lineups. Book your date and time in seconds." />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-  <div class="topline">
-    <div class="container topline-inner">
-      <span class="pill">Local barber</span>
-      <span class="divider">•</span>
-      <span>Serving Tallahassee & nearby neighborhoods</span>
-      <span class="divider">•</span>
-      <span>Call or text: <a id="topPhone" href="#">(850) 000-0000</a></span>
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="topbar-left">
+        <span class="pill">Barbershop</span>
+        <span class="sep">•</span>
+        <span>Call: <a id="phoneLinkTop" href="#">(000) 000-0000</a></span>
+        <span class="sep">•</span>
+        <span>Email: <a id="emailLinkTop" href="#">info@email.com</a></span>
+      </div>
+      <div class="topbar-right">
+        <a class="mini" href="#book">Book Now</a>
+        <a class="mini" href="#admin">Admin</a>
+      </div>
     </div>
   </div>
 
-  <header class="header" id="top">
-    <div class="container nav">
+  <!-- Nav -->
+  <header class="nav">
+    <div class="wrap nav-inner">
       <a class="brand" href="#top">
-        <span class="brand-mark">SK</span>
+        <span class="logo">VB</span>
         <span class="brand-text">
-          <span class="brand-name">Sawgrass King Cuts</span>
-          <span class="brand-sub">Fades • Lineups • Beard detailing</span>
+          <span class="brand-name">VASEAN Barbershop</span>
+          <span class="brand-sub">Fades • Lineups • Beard</span>
         </span>
       </a>
 
-      <nav class="nav-links" id="navLinks">
+      <nav class="nav-links">
         <a href="#services">Services</a>
-        <a href="#process">Experience</a>
-        <a href="#work">Results</a>
+        <a href="#gallery">Work</a>
+        <a href="#about">About</a>
         <a href="#contact">Contact</a>
-        <a class="btn btn-small" href="#contact">Book now</a>
+        <a class="btn" href="#book">Book a Date</a>
       </nav>
 
-      <button class="menu" id="menuBtn" aria-expanded="false" aria-label="Menu">☰</button>
+      <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false">☰</button>
+    </div>
+
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#services">Services</a>
+      <a href="#gallery">Work</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+      <a href="#book" class="btn">Book a Date</a>
+      <a href="#admin" class="ghost">Admin</a>
     </div>
   </header>
 
-  <main>
+  <!-- Hero -->
+  <main id="top">
     <section class="hero">
-      <div class="container hero-grid">
+      <div class="wrap hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">Walk out with confidence</p>
-          <h1>Fresh fades, razor-sharp detail, and appointments that run on time.</h1>
-          <p class="lead">Sawgrass King Cuts delivers premium grooming with zero guesswork. Choose your service, lock your time, and get a chair that respects your schedule.</p>
+          <div class="kicker">Walk in sharp. Leave sharper.</div>
+          <h1>Fresh cuts, clean experience — book your spot.</h1>
+          <p class="lead">
+            Modern barbershop focused on consistency: fades, tapers, lineups, beard work, and kids cuts.
+            Request a date & time and we’ll confirm fast.
+          </p>
 
-          <div class="cta-row">
-            <a class="btn" id="heroBook" href="#contact">Book an appointment</a>
-            <a class="ghost" id="heroCall" href="#">Call or text now</a>
+          <div class="hero-cta">
+            <a class="btn" href="#book">Book a Date & Time</a>
+            <a class="ghost" id="callNowHero" href="#">Call Now</a>
           </div>
 
-          <div class="chips">
-            <span class="chip">Same-day when available</span>
-            <span class="chip">Mobile-friendly booking</span>
-            <span class="chip">Card + cash accepted</span>
+          <div class="hero-badges">
+            <div class="badge">
+              <div class="badge-title">Same-day slots</div>
+              <div class="badge-sub">When available</div>
+            </div>
+            <div class="badge">
+              <div class="badge-title">Clean & professional</div>
+              <div class="badge-sub">Always on time</div>
+            </div>
+            <div class="badge">
+              <div class="badge-title">All hair types</div>
+              <div class="badge-sub">Fades + beards</div>
+            </div>
           </div>
         </div>
 
         <div class="hero-card">
-          <div class="card-head">
-            <div>
-              <p class="tiny muted">Shop hours</p>
-              <h3>Tue – Sat</h3>
-              <p class="muted">10:00a – 8:00p</p>
-            </div>
-            <div class="badge">Consistent every cut</div>
+          <div class="card-header">
+            <div class="card-title">Quick Booking</div>
+            <div class="card-sub">Pick a date to see open times</div>
           </div>
 
           <div class="card-body">
-            <div class="kv">
-              <span class="k">Location</span>
-              <span class="v">Tallahassee, FL</span>
+            <label class="label">Select date</label>
+            <input class="input" type="date" id="quickDate" />
+
+            <div class="small-spacer"></div>
+
+            <div class="times">
+              <div class="times-title">Open times</div>
+              <div id="quickTimes" class="times-grid"></div>
+              <div id="quickTimesNote" class="muted tiny"></div>
             </div>
-            <div class="kv">
-              <span class="k">Walk-ins</span>
-              <span class="v">When schedule allows</span>
-            </div>
-            <div class="kv">
-              <span class="k">Text</span>
-              <span class="v"><a id="cardPhone" href="#">(850) 000-0000</a></span>
-            </div>
-            <div class="kv">
-              <span class="k">Email</span>
-              <span class="v"><a id="cardEmail" href="#">hello@sawgrasscuts.com</a></span>
-            </div>
-            <p class="muted tiny">Need a specific time? Send a quick note below and we’ll confirm the best slot.</p>
-            <a class="btn full" href="#contact">Start a booking request</a>
+
+            <div class="small-spacer"></div>
+
+            <a class="btn full" href="#book">Finish booking</a>
+            <div class="muted tiny center">Requests get sent by text and confirmed by the shop.</div>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Services -->
     <section id="services" class="section">
-      <div class="container">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Services</p>
-            <h2>Pick your cut — tailored to your look.</h2>
-            <p class="section-sub">Detailed fades, clean lineups, beard sculpting, and packages that keep you sharp.</p>
-          </div>
-          <a class="ghost" href="#contact">Request a time</a>
-        </div>
+      <div class="wrap">
+        <h2>Barbershop Services</h2>
+        <p class="section-sub">Pick your service — then choose a date & time below.</p>
 
-        <div class="grid">
+        <div class="grid-3">
           <div class="card">
             <div class="card-icon">✂️</div>
-            <h3>Signature Fade</h3>
-            <p>Low, mid, or high fade finished with a crisp lineup and styled top.</p>
+            <h3>Haircut</h3>
+            <p>Fade or taper, finished with a clean lineup.</p>
             <ul class="list">
-              <li>Razor or trimmer finish</li>
-              <li>Enhancements on request</li>
-              <li>30–45 minutes</li>
+              <li>Skin fade / low-mid-high</li>
+              <li>Scissor work (optional)</li>
+              <li>Enhancements (optional)</li>
             </ul>
-            <div class="price-row">
-              <span class="price">$40</span>
-              <span class="muted tiny">Book online</span>
-            </div>
           </div>
 
           <div class="card">
             <div class="card-icon">🧔</div>
-            <h3>Beard Detailing</h3>
-            <p>Shape, trim, and line with hot towel care to keep your beard healthy.</p>
+            <h3>Beard</h3>
+            <p>Shape, trim, and line with a sharp finish.</p>
             <ul class="list">
-              <li>Beard sculpt + lineup</li>
-              <li>Oil/aftercare guidance</li>
-              <li>20–30 minutes</li>
+              <li>Beard trim + lineup</li>
+              <li>Hot towel (optional)</li>
+              <li>Aftercare advice</li>
             </ul>
-            <div class="price-row">
-              <span class="price">$30</span>
-              <span class="muted tiny">Pair with a fade</span>
-            </div>
           </div>
 
           <div class="card">
             <div class="card-icon">👦</div>
-            <h3>Young Kings</h3>
-            <p>Kid-friendly cuts with patience, clean tools, and picture-ready finish.</p>
+            <h3>Kids Cut</h3>
+            <p>Patient, clean, and quick.</p>
             <ul class="list">
-              <li>All ages welcome</li>
-              <li>Lineups included</li>
-              <li>25–35 minutes</li>
+              <li>All ages</li>
+              <li>Natural or styled finish</li>
+              <li>Friendly environment</li>
             </ul>
-            <div class="price-row">
-              <span class="price">$30</span>
-              <span class="muted tiny">Early slots available</span>
-            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="band">
-      <div class="container band-grid">
-        <div>
-          <p class="eyebrow">Built for reliability</p>
-          <h2>Zero guesswork booking and a shop that respects your time.</h2>
-          <p class="muted">Every appointment is confirmed, reminders are clear, and you’ll always know what to expect before you arrive.</p>
-        </div>
-        <div class="pillars">
-          <div class="pillar">
-            <div class="pillar-title">On-time starts</div>
-            <p class="tiny muted">Stay on schedule with clear arrival windows and confirmations.</p>
-          </div>
-          <div class="pillar">
-            <div class="pillar-title">Sanitized tools</div>
-            <p class="tiny muted">Disinfected after every guest plus fresh capes and guards.</p>
-          </div>
-          <div class="pillar">
-            <div class="pillar-title">Straightforward pricing</div>
-            <p class="tiny muted">No surprises. Quotes are locked before you sit down.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="process" class="section">
-      <div class="container">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Experience</p>
-            <h2>Here’s how booking with Sawgrass King Cuts works.</h2>
-            <p class="section-sub">Fast responses, simple scheduling, and the same quality every visit.</p>
-          </div>
-          <a class="ghost" href="#contact">Start your request</a>
-        </div>
-
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">01</div>
-            <div>
-              <h3>Send your details</h3>
-              <p class="muted">Share your name, service, and preferred date/time. Text or use the form below.</p>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">02</div>
-            <div>
-              <h3>We confirm your slot</h3>
-              <p class="muted">You’ll get a quick reply with the closest available time plus any prep notes.</p>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">03</div>
-            <div>
-              <h3>Show up and relax</h3>
-              <p class="muted">Expect a clean station, on-time start, and a cut tailored to your style.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="work" class="section alt">
-      <div class="container">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Results</p>
-            <h2>Recent looks from the chair.</h2>
-            <p class="section-sub">Replace these placeholders with your photos anytime.</p>
-          </div>
-          <a class="ghost" href="#contact">Book your next cut</a>
-        </div>
+    <!-- Gallery -->
+    <section id="gallery" class="section alt">
+      <div class="wrap">
+        <h2>Recent Work</h2>
+        <p class="section-sub">Swap these placeholders with real photos anytime.</p>
 
         <div class="gallery">
-          <div class="frame">Faded taper</div>
-          <div class="frame">Burst fade</div>
-          <div class="frame">Beard sculpt</div>
-          <div class="frame">Kids cut</div>
-          <div class="frame">Low fade</div>
-          <div class="frame">Design work</div>
+          <div class="photo">Photo Slot</div>
+          <div class="photo">Photo Slot</div>
+          <div class="photo">Photo Slot</div>
+          <div class="photo">Photo Slot</div>
+          <div class="photo">Photo Slot</div>
+          <div class="photo">Photo Slot</div>
         </div>
       </div>
     </section>
 
-    <section class="section">
-      <div class="container pricing">
-        <div>
-          <p class="eyebrow">Packages</p>
-          <h2>Save on the combos you book most.</h2>
-          <p class="section-sub">Lock in your go-to services together for a streamlined visit.</p>
-        </div>
-        <div class="pricing-grid">
-          <div class="card">
-            <h3>Cut + Beard</h3>
-            <p class="muted">Full fade with beard sculpting and razor finish.</p>
-            <div class="price-tag">$60</div>
+    <!-- About -->
+    <section id="about" class="section">
+      <div class="wrap">
+        <h2>About VASEAN Barbershop</h2>
+        <p class="section-sub">Consistency, cleanliness, and respect — every appointment.</p>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>What you can expect</h3>
             <ul class="list">
-              <li>1 hour chair time</li>
-              <li>Hot towel detailing</li>
-              <li>Enhancements on request</li>
+              <li>On-time service and clear communication</li>
+              <li>Sharp lineups and smooth blends</li>
+              <li>Clean tools and a professional setup</li>
+              <li>Respect for your time and style</li>
             </ul>
-            <a class="btn full" href="#contact">Reserve this combo</a>
           </div>
-          <div class="card">
-            <h3>Weekly Tune-Up</h3>
-            <p class="muted">Lineup maintenance to keep your look fresh between cuts.</p>
-            <div class="price-tag">$25</div>
-            <ul class="list">
-              <li>Edges + beard line</li>
-              <li>20–25 minutes</li>
-              <li>Perfect for tight schedules</li>
-            </ul>
-            <a class="ghost full" href="#contact">Get on the schedule</a>
+
+          <div class="panel">
+            <h3>Shop info</h3>
+            <div class="kv">
+              <div class="k">Service area</div>
+              <div class="v">Add your city/area here (helps trust + SEO)</div>
+            </div>
+            <div class="kv">
+              <div class="k">Walk-ins</div>
+              <div class="v">When available — booking is recommended</div>
+            </div>
+            <div class="kv">
+              <div class="k">Payment</div>
+              <div class="v">Cash • Card • Contactless (edit as needed)</div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="cta">
-      <div class="container cta-grid">
+    <!-- Contact + Booking -->
+    <section id="contact" class="section alt">
+      <div class="wrap">
+        <h2>Contact</h2>
+        <p class="section-sub">Call, text, or send a booking request — we’ll confirm availability.</p>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Direct</h3>
+            <div class="kv">
+              <div class="k">Phone</div>
+              <div class="v"><a id="phoneLinkContact" href="#">(000) 000-0000</a></div>
+            </div>
+            <div class="kv">
+              <div class="k">Email</div>
+              <div class="v"><a id="emailLinkContact" href="#">info@email.com</a></div>
+            </div>
+
+            <div class="cta-row">
+              <a class="btn" id="callNowContact" href="#">Call Now</a>
+              <a class="ghost" href="#book">Book a Date</a>
+            </div>
+
+            <div class="muted tiny">
+              Tip: For the fastest confirmation, include service, preferred time, and any notes.
+            </div>
+          </div>
+
+          <div class="panel" id="book">
+            <h3>Book a Date & Time</h3>
+            <p class="muted">
+              Select a date to see open times. This sends a booking request by text so the shop can confirm.
+            </p>
+
+            <div class="form-grid">
+              <div>
+                <label class="label">Name</label>
+                <input class="input" id="bName" placeholder="Your name" />
+              </div>
+              <div>
+                <label class="label">Phone</label>
+                <input class="input" id="bPhone" placeholder="(555) 555-5555" inputmode="tel" />
+              </div>
+
+              <div class="fullrow">
+                <label class="label">Service</label>
+                <select class="input" id="bService">
+                  <option value="Haircut">Haircut</option>
+                  <option value="Haircut + Beard">Haircut + Beard</option>
+                  <option value="Beard Only">Beard Only</option>
+                  <option value="Kids Cut">Kids Cut</option>
+                </select>
+              </div>
+
+              <div class="fullrow">
+                <div class="split">
+                  <div>
+                    <label class="label">Date</label>
+                    <input class="input" type="date" id="bDate" />
+                  </div>
+                  <div>
+                    <label class="label">Time</label>
+                    <select class="input" id="bTime">
+                      <option value="">Select a date first</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="fullrow">
+                <label class="label">Notes</label>
+                <textarea class="input" id="bNotes" rows="4" placeholder="Anything we should know? (ex: low fade, beard shape-up, design, etc.)"></textarea>
+              </div>
+
+              <div class="fullrow">
+                <div class="muted tiny">
+                  <strong>Available booking hours:</strong> <span id="hoursText"></span><br/>
+                  <span id="takenText" class="muted"></span>
+                </div>
+              </div>
+
+              <div class="fullrow">
+                <button class="btn full" id="sendBookingText">Send Booking Text</button>
+                <div class="muted tiny center" id="smsHint"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Desk -->
+        <div id="admin" class="admin">
+          <div class="admin-head">
+            <h2>Admin Booking Desk</h2>
+            <p class="section-sub">Confirm/decline requests and block/open times so you never double-book.</p>
+            <div class="admin-actions">
+              <button class="ghost" id="lockAdmin">Lock Admin Desk</button>
+            </div>
+          </div>
+
+          <div class="admin-grid">
+            <div class="panel">
+              <h3>Admin access</h3>
+              <p class="muted">Enter the 4-digit PIN to unlock the booking tools.</p>
+              <div class="split">
+                <input class="input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" />
+                <button class="btn" id="unlockAdmin">Unlock</button>
+              </div>
+              <div class="muted tiny" id="pinNote"></div>
+            </div>
+
+            <div class="panel admin-only" data-admin>
+              <h3>Request queue</h3>
+              <p class="muted">Add incoming requests and confirm/decline them on the spot.</p>
+
+              <div class="form-grid">
+                <div>
+                  <label class="label">Name</label>
+                  <input class="input" id="qName" />
+                </div>
+                <div>
+                  <label class="label">Phone</label>
+                  <input class="input" id="qPhone" inputmode="tel" />
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Service</label>
+                  <select class="input" id="qService">
+                    <option value="Haircut">Haircut</option>
+                    <option value="Haircut + Beard">Haircut + Beard</option>
+                    <option value="Beard Only">Beard Only</option>
+                    <option value="Kids Cut">Kids Cut</option>
+                  </select>
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Book a Date & Time</label>
+                  <div class="split">
+                    <input class="input" type="date" id="qDate" />
+                    <select class="input" id="qTime"></select>
+                  </div>
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Notes</label>
+                  <textarea class="input" id="qNotes" rows="3"></textarea>
+                </div>
+
+                <div class="fullrow">
+                  <button class="btn full" id="addToQueue">Add to Queue</button>
+                  <div class="muted tiny center">Requests save in this browser (localStorage).</div>
+                </div>
+              </div>
+
+              <hr class="hr" />
+
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Request</th>
+                      <th>Book a Date & Time</th>
+                      <th>Status</th>
+                      <th class="right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="queueTable"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel admin-only" data-admin>
+              <h3>Availability editor</h3>
+              <p class="muted">Block/open times instantly (affects the booking picker).</p>
+
+              <div class="form-grid">
+                <div class="fullrow">
+                  <label class="label">Date</label>
+                  <input class="input" type="date" id="aDate" />
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Time blocks</label>
+                  <div id="aTimes" class="times-grid"></div>
+                  <div class="muted tiny">Click to toggle a time as unavailable.</div>
+                </div>
+
+                <div class="fullrow">
+                  <label class="check">
+                    <input type="checkbox" id="aDayOff" />
+                    Mark entire day as unavailable
+                  </label>
+                </div>
+
+                <div class="fullrow split">
+                  <button class="ghost" id="clearOverrides">Clear overrides</button>
+                  <button class="btn" id="saveOverrides">Save to Calendar</button>
+                </div>
+
+                <div class="muted tiny" id="adminSaveNote"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
         <div>
-          <p class="eyebrow">Ready when you are</p>
-          <h2>Tell us your time and we’ll lock it in.</h2>
-          <p class="muted">Same-day options when available. Expect a quick response.</p>
+          <div class="footer-brand">VASEAN Barbershop</div>
+          <div class="muted tiny">Fades • Lineups • Beard</div>
         </div>
-        <div class="cta-actions">
-          <a class="btn" id="ctaCall" href="#">Call the shop</a>
-          <a class="ghost" href="#contact">Send booking request</a>
-        </div>
-      </div>
-    </section>
-
-    <section id="contact" class="section">
-      <div class="container contact-grid">
-        <div class="contact-info">
-          <p class="eyebrow">Contact</p>
-          <h2>Book a time or ask a question.</h2>
-          <p class="section-sub">Send the form and you’ll get a confirmation with the closest available slot.</p>
-
-          <div class="info-block">
-            <div class="info-row">
-              <span class="k">Phone</span>
-              <span class="v"><a id="contactPhone" href="#">(850) 000-0000</a></span>
-            </div>
-            <div class="info-row">
-              <span class="k">Text</span>
-              <span class="v"><a id="contactText" href="#">(850) 000-0000</a></span>
-            </div>
-            <div class="info-row">
-              <span class="k">Email</span>
-              <span class="v"><a id="contactEmail" href="#">hello@sawgrasscuts.com</a></span>
-            </div>
-            <div class="info-row">
-              <span class="k">Hours</span>
-              <span class="v">Tue – Sat, 10:00a – 8:00p</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="card contact-card">
-          <h3>Booking request</h3>
-          <p class="muted">Share what you need and when you’d like to come in. We’ll reply quickly with the closest available time.</p>
-
-          <form id="bookingForm" class="form-grid">
-            <label>
-              <span class="label">Name</span>
-              <input class="input" type="text" name="name" placeholder="Your name" required />
-            </label>
-            <label>
-              <span class="label">Phone</span>
-              <input class="input" type="tel" name="phone" placeholder="(850) 555-1234" required />
-            </label>
-            <label>
-              <span class="label">Service</span>
-              <select class="input" name="service" required>
-                <option value="Signature Fade">Signature Fade</option>
-                <option value="Cut + Beard">Cut + Beard</option>
-                <option value="Beard Detailing">Beard Detailing</option>
-                <option value="Young Kings">Young Kings</option>
-                <option value="Weekly Tune-Up">Weekly Tune-Up</option>
-              </select>
-            </label>
-            <label>
-              <span class="label">Preferred date</span>
-              <input class="input" type="date" name="date" required />
-            </label>
-            <label>
-              <span class="label">Preferred time</span>
-              <input class="input" type="text" name="time" placeholder="2:30 PM" />
-            </label>
-            <label class="full">
-              <span class="label">Notes</span>
-              <textarea class="input" name="notes" rows="4" placeholder="Example: low fade with beard lineup"></textarea>
-            </label>
-            <div class="full">
-              <button class="btn full" type="submit">Send request</button>
-              <p class="tiny muted" id="formNote">We’ll reply fast with confirmation and options.</p>
-            </div>
-          </form>
+        <div class="footer-links">
+          <a href="#services">Services</a>
+          <a href="#gallery">Work</a>
+          <a href="#contact">Contact</a>
+          <a href="#admin">Admin</a>
         </div>
       </div>
-    </section>
+      <div class="wrap tiny muted footer-bottom">© <span id="year"></span> VASEAN Barbershop • Back to top ↑</div>
+    </footer>
   </main>
-
-  <footer class="footer">
-    <div class="container footer-grid">
-      <div>
-        <div class="brand-mark">SK</div>
-        <div class="muted tiny">Sawgrass King Cuts • Tallahassee, FL</div>
-      </div>
-      <div class="footer-links">
-        <a href="#services">Services</a>
-        <a href="#process">Experience</a>
-        <a href="#work">Results</a>
-        <a href="#contact">Book</a>
-      </div>
-      <div class="muted tiny">© <span id="year"></span> Sawgrass King Cuts. All rights reserved.</div>
-    </div>
-  </footer>
 
   <script src="script.js"></script>
 </body>
