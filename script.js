@@ -315,6 +315,64 @@ function renderGallery(){
   }
 }
 
+function renderPhotoManager(){
+  const list = $("#photoList");
+  if(!list) return;
+
+  const photos = getGalleryPhotos();
+  list.innerHTML = "";
+
+  if(photos.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "muted tiny";
+    empty.textContent = "No photos uploaded yet.";
+    list.appendChild(empty);
+    return;
+  }
+
+  photos.forEach((src, idx)=>{
+    const row = document.createElement("div");
+    row.className = "photo-row";
+    row.innerHTML = `
+      <div class="photo-thumb">${src ? `<img src="${src}" alt="Recent work ${idx + 1}">` : ""}</div>
+      <div class="photo-meta">
+        <div class="tiny muted">Photo ${idx + 1}</div>
+        <div class="photo-actions">
+          <button class="ghost tiny-btn" data-act="open" data-idx="${idx}">Open</button>
+          <button class="ghost danger tiny-btn" data-act="delete" data-idx="${idx}">Delete</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll("button[data-act]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const idx = Number(btn.getAttribute("data-idx"));
+      const act = btn.getAttribute("data-act");
+      const photosNow = getGalleryPhotos();
+      const src = photosNow[idx];
+
+      if(typeof src === "undefined") return;
+
+      if(act === "open"){
+        window.open(src, "_blank");
+      }
+
+      if(act === "delete"){
+        const ok = confirm("Delete this photo from Recent Work?");
+        if(ok){
+          photosNow.splice(idx,1);
+          setGalleryPhotos(photosNow);
+          renderGallery();
+          renderPhotoManager();
+          setPhotoUploadNote("Photo removed from Recent Work.", true);
+        }
+      }
+    });
+  });
+}
+
 function setPhotoUploadNote(msg, ok=false){
   const el = $("#photoUploadNote");
   if(!el) return;
@@ -340,6 +398,7 @@ function handlePhotoFile(file, sourceLabel){
     photos.unshift(e.target.result);
     setGalleryPhotos(photos.slice(0, 9));
     renderGallery();
+    renderPhotoManager();
     setPhotoUploadNote(`${sourceLabel || "Upload"} added to gallery.`, true);
   };
   reader.readAsDataURL(file);
@@ -834,6 +893,7 @@ function init(){
   hydrateLinks();
   setupMobileMenu();
   renderGallery();
+  renderPhotoManager();
   clampDateInputs();
 
   // defaults

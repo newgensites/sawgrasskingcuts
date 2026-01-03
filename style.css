@@ -295,6 +295,18 @@ textarea.input{resize:vertical}
 .upload-grid{display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:10px; margin:12px 0 6px}
 #photoUploadNote.ok{color: rgba(46, 204, 113, .95)}
 #photoUploadNote.error{color: rgba(231, 76, 60, .95)}
+.photo-manager{margin-top:14px; border-top:1px solid rgba(255,255,255,.10); padding-top:12px}
+.photo-manager-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap}
+.photo-list{display:flex; flex-direction:column; gap:10px; margin-top:10px}
+.photo-row{display:flex; gap:10px; align-items:center; border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:8px; background: rgba(0,0,0,.25)}
+.photo-thumb{width:64px; height:64px; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,.12); background:#01040c; display:grid; place-items:center}
+.photo-thumb img{width:100%; height:100%; object-fit:cover; display:block}
+.photo-meta{flex:1; min-width:0}
+.photo-meta .tiny{margin:0 0 4px}
+.photo-actions{display:flex; gap:8px; flex-wrap:wrap}
+.tiny-btn{padding:8px 10px; font-size:12px; border-radius:10px}
+.ghost.danger{border-color: rgba(200,16,46,.35); color:#f7d7de}
+.ghost.danger:hover{border-color: rgba(200,16,46,.65); color:#fff}
 
 .admin-access{background: linear-gradient(120deg, rgba(255,255,255,.08), rgba(255,255,255,.02));}
 .access-row{align-items:center}
