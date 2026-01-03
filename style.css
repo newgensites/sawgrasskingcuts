@@ -24,7 +24,12 @@ body{
 }
 
 a{color:inherit;text-decoration:none}
-.wrap{width:min(1140px, calc(100% - 40px)); margin:0 auto}
+.wrap{
+  max-width:1140px;
+  width:100%;
+  margin:0 auto;
+  padding:0 20px;
+}
 
 .topbar{
   position:sticky; top:0; z-index:50;
@@ -340,7 +345,7 @@ button[disabled]{opacity:.55; cursor:not-allowed}
 }
 
 @media (max-width: 640px){
-  .wrap{width:calc(100% - 24px)}
+  .wrap{width:100%; padding:0 14px}
   .topbar-inner, .nav-inner{flex-wrap:wrap; gap:10px}
   .topbar-right{width:100%; justify-content:flex-start}
   .nav-inner{align-items:flex-start}
