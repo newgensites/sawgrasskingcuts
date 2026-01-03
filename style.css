@@ -181,6 +181,48 @@ textarea.input{resize:vertical}
 .fullrow{grid-column: 1 / -1}
 .split{display:grid; grid-template-columns: 1fr 1fr; gap:12px}
 
+.calendar-card{
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.03);
+  border-radius:16px;
+  padding:12px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+}
+.cal-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px}
+.cal-month{font-weight:900; letter-spacing:.2px}
+.mini-btn{padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.18); font-weight:800}
+.cal-grid{display:grid; grid-template-columns: repeat(7, 1fr); gap:6px}
+.cal-weekdays{color:var(--muted); font-size:12px; text-align:center; margin-bottom:6px}
+.cal-day{
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  background: rgba(255,255,255,.02);
+  min-height:72px;
+  padding:8px 8px 6px;
+  display:grid;
+  grid-template-rows: auto 1fr auto;
+  gap:4px;
+  cursor:pointer;
+  transition: border-color .15s ease, transform .1s ease;
+}
+.cal-day:hover{border-color: rgba(177,31,59,.45); transform: translateY(-1px)}
+.cal-day.disabled{opacity:.35; cursor:not-allowed}
+.cal-day.closed{border-style:dashed;}
+.cal-day.full{border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.04)}
+.cal-day.selected{border-color: rgba(177,31,59,.8); box-shadow: 0 8px 20px rgba(177,31,59,.15); background: rgba(177,31,59,.12)}
+.cal-num{font-weight:900}
+.cal-meta{font-size:12px; color:var(--muted); align-self:end}
+.cal-dot{width:10px; height:10px; border-radius:50%;}
+.cal-row{display:flex; align-items:center; justify-content:space-between; gap:6px}
+.dot{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:6px; position:relative; top:1px}
+.dot-open{background: rgba(46, 204, 113, .9); box-shadow:0 0 0 4px rgba(46, 204, 113, .1)}
+.dot-full{background: rgba(177,31,59,.9); box-shadow:0 0 0 4px rgba(177,31,59,.08)}
+.dot-closed{background: rgba(255,255,255,.35); box-shadow:0 0 0 4px rgba(255,255,255,.05)}
+.cal-legend{display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:8px}
+
+.chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+.chip.mini{padding:4px 8px; font-size:11px; border-radius:10px}
+
 .times{margin-top:10px}
 .times-title{font-weight:900; font-size:13px; margin-bottom:8px}
 .times-grid{

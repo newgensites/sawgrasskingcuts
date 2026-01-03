@@ -52,8 +52,32 @@ function addDaysISO(iso, days){
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
+function dateToISO(d){
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+const MIN_DATE = todayISO();
+const MAX_DATE = addDaysISO(MIN_DATE, CONFIG.MAX_DAYS_AHEAD);
+let calendarMonthISO = null; // YYYY-MM-01
+
 function dayOfWeek(iso){
   return new Date(iso + "T00:00:00").getDay();
+}
+
+function monthStartISO(iso){
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(1);
+  return dateToISO(d);
+}
+
+function shiftMonthISO(monthISO, delta){
+  const d = new Date(monthISO + "T00:00:00");
+  d.setMonth(d.getMonth() + delta);
+  return monthStartISO(dateToISO(d));
+}
+
+function isWithinRange(iso){
+  return iso >= MIN_DATE && iso <= MAX_DATE;
 }
 
 function timeToMinutes(t){
@@ -88,8 +112,8 @@ function saveJSON(key, val){
 }
 
 function clampDateInputs(){
-  const min = todayISO();
-  const max = addDaysISO(min, CONFIG.MAX_DAYS_AHEAD);
+  const min = MIN_DATE;
+  const max = MAX_DATE;
   ["#bDate","#qDate","#aDate"].forEach(id=>{
     const el = $(id);
     if(!el) return;
@@ -145,6 +169,11 @@ function isBlocked(dateISO, timeHHMM){
   if(!entry) return false;
   if(entry.dayOff) return true;
   return (entry.blocked || []).includes(timeHHMM);
+}
+
+function isDayOff(dateISO){
+  const ov = getOverrides();
+  return Boolean(ov?.[dateISO]?.dayOff);
 }
 
 /* ----------------- slots generation ----------------- */
@@ -231,9 +260,96 @@ function setupMobileMenu(){
 }
 
 /* ----------------- UI: booking form ----------------- */
+function selectDate(dateISO){
+  $("#bDate").value = dateISO;
+  hydrateBookingTimes(dateISO);
+  renderCalendar();
+}
+
+function renderCalendar(){
+  if(!calendarMonthISO) calendarMonthISO = monthStartISO(MIN_DATE);
+
+  const daysWrap = $("#calDays");
+  const monthLabel = $("#calMonth");
+  const prevBtn = $("#calPrev");
+  const nextBtn = $("#calNext");
+  const minMonth = monthStartISO(MIN_DATE);
+  const maxMonth = monthStartISO(MAX_DATE);
+
+  const base = new Date(calendarMonthISO + "T00:00:00");
+  monthLabel.textContent = base.toLocaleString(undefined, { month: "long", year: "numeric" });
+  prevBtn.disabled = calendarMonthISO <= minMonth;
+  nextBtn.disabled = calendarMonthISO >= maxMonth;
+
+  daysWrap.innerHTML = "";
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const selected = $("#bDate").value;
+
+  for(let i=0;i<firstDow;i++) daysWrap.appendChild(document.createElement("div"));
+
+  for(let day=1; day<=daysInMonth; day++){
+    const iso = `${year}-${pad(month+1)}-${pad(day)}`;
+    const dayEl = document.createElement("div");
+    dayEl.className = "cal-day";
+    dayEl.dataset.date = iso;
+
+    const inRange = isWithinRange(iso);
+    const hours = getHoursForDate(iso);
+    const dayOff = isDayOff(iso);
+    const hasHours = Boolean(hours) && !dayOff;
+    const openCount = hasHours ? availableSlots(iso).length : 0;
+    const takenCount = hasHours ? takenSlots(iso).length : 0;
+
+    let meta = hasHours ? `${openCount} open` : (dayOff ? "Day off" : "Closed");
+    let dotClass = "dot-closed";
+
+    if(!inRange){
+      dayEl.classList.add("disabled");
+      meta = "Out of range";
+    } else if(!hasHours){
+      dayEl.classList.add("closed","disabled");
+    } else if(openCount === 0){
+      dayEl.classList.add("full");
+      dotClass = "dot-full";
+      meta = takenCount ? `Full (${takenCount} taken)` : "Full";
+    } else {
+      dotClass = "dot-open";
+    }
+
+    if(selected === iso) dayEl.classList.add("selected");
+
+    dayEl.innerHTML = `
+      <div class="cal-row">
+        <div class="cal-num">${day}</div>
+        <span class="dot ${dotClass}"></span>
+      </div>
+      <div class="cal-meta">${meta}</div>
+    `;
+
+    if(inRange && hasHours){
+      dayEl.addEventListener("click", ()=> selectDate(iso));
+    }
+
+    daysWrap.appendChild(dayEl);
+  }
+}
+
+function goToMonth(delta){
+  const minMonth = monthStartISO(MIN_DATE);
+  const maxMonth = monthStartISO(MAX_DATE);
+  const next = shiftMonthISO(calendarMonthISO, delta);
+  if(next < minMonth || next > maxMonth) return;
+  calendarMonthISO = next;
+  renderCalendar();
+}
+
 function hydrateBookingTimes(dateISO){
   const sel = $("#bTime");
   sel.innerHTML = "";
+  $("#takenChips").innerHTML = "";
 
   if(!dateISO){
     const opt = document.createElement("option");
@@ -241,6 +357,7 @@ function hydrateBookingTimes(dateISO){
     opt.textContent = "Select a date first";
     sel.appendChild(opt);
     $("#takenText").textContent = "";
+    $("#takenChips").innerHTML = "";
     return;
   }
 
@@ -253,6 +370,7 @@ function hydrateBookingTimes(dateISO){
     opt.textContent = "Closed on this day";
     sel.appendChild(opt);
     $("#takenText").textContent = "";
+    $("#takenChips").innerHTML = "";
     return;
   }
 
@@ -279,8 +397,18 @@ function hydrateBookingTimes(dateISO){
   }
 
   $("#takenText").textContent = taken.length
-    ? `Taken/blocked for this date: ${taken.join(", ")}`
+    ? `Taken/blocked for this date:`
     : `No taken times yet for this date.`;
+
+  if(taken.length){
+    const chipRow = $("#takenChips");
+    taken.forEach(t=>{
+      const chip = document.createElement("span");
+      chip.className = "chip mini";
+      chip.textContent = t;
+      chipRow.appendChild(chip);
+    });
+  }
 }
 
 function sendBookingSMS(){
@@ -606,7 +734,7 @@ function init(){
   clampDateInputs();
 
   // defaults
-  const min = todayISO();
+  const min = MIN_DATE;
   $("#bDate").value = min;
   $("#qDate").value = min;
   $("#aDate").value = min;
@@ -614,10 +742,14 @@ function init(){
   hydrateBookingTimes(min);
   hydrateQueueTimes(min);
   hydrateAdminTimes(min);
+  calendarMonthISO = monthStartISO(min);
+  renderCalendar();
 
   // listeners
   $("#bDate").addEventListener("change", (e)=> hydrateBookingTimes(e.target.value));
   $("#sendBookingText").addEventListener("click", (e)=>{ e.preventDefault(); sendBookingSMS(); });
+  $("#calPrev").addEventListener("click", (e)=>{ e.preventDefault(); goToMonth(-1); });
+  $("#calNext").addEventListener("click", (e)=>{ e.preventDefault(); goToMonth(1); });
 
   // admin lock/unlock
   $("#unlockAdmin").addEventListener("click", unlockAdmin);

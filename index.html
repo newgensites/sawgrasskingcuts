@@ -283,18 +283,31 @@
               </div>
 
               <div class="fullrow">
-                <div class="split">
-                  <div>
-                    <label class="label">Date</label>
-                    <input class="input" type="date" id="bDate" />
+                <label class="label">Date</label>
+                <div class="calendar-card">
+                  <div class="cal-head">
+                    <button class="ghost mini-btn" id="calPrev" aria-label="Previous month">‹</button>
+                    <div class="cal-month" id="calMonth"></div>
+                    <button class="ghost mini-btn" id="calNext" aria-label="Next month">›</button>
                   </div>
-                  <div>
-                    <label class="label">Time</label>
-                    <select class="input" id="bTime">
-                      <option value="">Select a date first</option>
-                    </select>
+                  <div class="cal-grid cal-weekdays">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                  </div>
+                  <div class="cal-grid" id="calDays"></div>
+                  <div class="cal-legend tiny muted">
+                    <span class="dot dot-open"></span>Open slots
+                    <span class="dot dot-full"></span>Fully booked
+                    <span class="dot dot-closed"></span>Closed / day off
                   </div>
                 </div>
+                <input type="hidden" id="bDate" />
+              </div>
+
+              <div class="fullrow">
+                <label class="label">Available Times</label>
+                <select class="input" id="bTime">
+                  <option value="">Select a date first</option>
+                </select>
               </div>
 
               <div class="fullrow">
@@ -306,6 +319,7 @@
                 <div class="muted tiny">
                   <strong>Available booking hours:</strong> <span id="hoursText"></span><br/>
                   <span id="takenText" class="muted"></span>
+                  <div id="takenChips" class="chip-row"></div>
                 </div>
               </div>
 
