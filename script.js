@@ -37,6 +37,8 @@ const LS = {
   gallery: "vb_gallery_v1",
 };
 
+const SYNC_KEYS = new Set([LS.bookings, LS.overrides, LS.queue, LS.gallery]);
+
 /* ----------------- helpers ----------------- */
 const $ = (sel) => document.querySelector(sel);
 
@@ -888,6 +890,36 @@ function escapeHtml(str){
   }[s]));
 }
 
+function onStorageSync(e){
+  if(!SYNC_KEYS.has(e.key)) return;
+
+  // photos
+  if(e.key === LS.gallery){
+    renderGallery();
+    renderPhotoManager();
+    return;
+  }
+
+  // queue only
+  if(e.key === LS.queue){
+    renderQueue();
+  }
+
+  // bookings/overrides impact calendar + pickers
+  const bDate = $("#bDate").value;
+  const qDate = $("#qDate").value;
+  const aDate = $("#aDate").value;
+
+  renderCalendar();
+  if(bDate) hydrateBookingTimes(bDate);
+  if(qDate) hydrateQueueTimes(qDate);
+  if(aDate) hydrateAdminTimes(aDate);
+}
+
+function setupStorageSync(){
+  window.addEventListener("storage", onStorageSync);
+}
+
 /* ----------------- init ----------------- */
 function init(){
   hydrateLinks();
@@ -939,6 +971,9 @@ function init(){
   bindUploadControl("#btnTakePhoto", "#inputTakePhoto", "Photo");
   bindUploadControl("#btnUploadFile", "#inputUploadFile", "Upload");
   bindUploadControl("#btnCameraRoll", "#inputCameraRoll", "Camera roll");
+
+  // cross-tab sync so edits mirror instantly everywhere
+  setupStorageSync();
 
   // apply lock state
   applyAdminLock();
