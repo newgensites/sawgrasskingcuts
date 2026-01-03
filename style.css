@@ -323,3 +323,15 @@ button[disabled]{opacity:.55; cursor:not-allowed}
   .mobile-menu.show{display:block}
   .times-grid{grid-template-columns: repeat(3,1fr)}
 }
+
+@media (max-width: 640px){
+  .wrap{width:calc(100% - 24px)}
+  .topbar-inner, .nav-inner{flex-wrap:wrap; gap:10px}
+  .topbar-right{width:100%; justify-content:flex-start}
+  .nav-inner{align-items:flex-start}
+  .hero h1{font-size:32px}
+  .form-grid{grid-template-columns: 1fr}
+  .times-grid{grid-template-columns: repeat(2,1fr)}
+  .calendar-card{padding:10px}
+  .cal-grid{gap:4px}
+}
