@@ -144,7 +144,7 @@ function setQueue(q){
 
 function markTaken(dateISO, timeHHMM, bookingObj){
   const bookings = getBookings();
-  bookings[dateISO] ||= {};
+  if(!bookings[dateISO]) bookings[dateISO] = {};
   bookings[dateISO][timeHHMM] = bookingObj || { taken:true };
   setBookings(bookings);
 }
@@ -160,12 +160,12 @@ function clearTaken(dateISO, timeHHMM){
 
 function isTaken(dateISO, timeHHMM){
   const bookings = getBookings();
-  return Boolean(bookings?.[dateISO]?.[timeHHMM]);
+  return Boolean(bookings && bookings[dateISO] && bookings[dateISO][timeHHMM]);
 }
 
 function isBlocked(dateISO, timeHHMM){
   const ov = getOverrides();
-  const entry = ov?.[dateISO];
+  const entry = ov && ov[dateISO];
   if(!entry) return false;
   if(entry.dayOff) return true;
   return (entry.blocked || []).includes(timeHHMM);
@@ -173,7 +173,7 @@ function isBlocked(dateISO, timeHHMM){
 
 function isDayOff(dateISO){
   const ov = getOverrides();
-  return Boolean(ov?.[dateISO]?.dayOff);
+  return Boolean(ov && ov[dateISO] && ov[dateISO].dayOff);
 }
 
 /* ----------------- slots generation ----------------- */
@@ -249,14 +249,18 @@ function hydrateLinks(){
 function setupMobileMenu(){
   const btn = $("#hamburger");
   const menu = $("#mobileMenu");
-  btn?.addEventListener("click", ()=>{
-    const open = menu.classList.toggle("show");
-    btn.setAttribute("aria-expanded", open ? "true" : "false");
-  });
+  if(btn){
+    btn.addEventListener("click", ()=>{
+      const open = menu.classList.toggle("show");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
   // close menu on click
-  menu?.querySelectorAll("a").forEach(a=>{
-    a.addEventListener("click", ()=> menu.classList.remove("show"));
-  });
+  if(menu){
+    menu.querySelectorAll("a").forEach(a=>{
+      a.addEventListener("click", ()=> menu.classList.remove("show"));
+    });
+  }
 }
 
 /* ----------------- UI: booking form ----------------- */
@@ -552,7 +556,9 @@ function addToQueue(){
 
   const q = getQueue();
   q.unshift({
-    id: crypto?.randomUUID?.() || String(Date.now()),
+    id: (typeof crypto !== "undefined" && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : String(Date.now()),
     name, phone, service, date, time, notes,
     status: "pending",
     createdAt: Date.now()
@@ -625,7 +631,7 @@ function hydrateAdminTimes(dateISO){
   }
 
   const ov = getOverrides();
-  const entry = ov?.[dateISO] || { dayOff:false, blocked:[] };
+  const entry = (ov && ov[dateISO]) ? ov[dateISO] : { dayOff:false, blocked:[] };
   $("#aDayOff").checked = Boolean(entry.dayOff);
 
   const slots = generateSlots(dateISO);
@@ -641,7 +647,7 @@ function hydrateAdminTimes(dateISO){
       // toggle blocked time (only if not dayOff)
       if($("#aDayOff").checked) return;
       const ov2 = getOverrides();
-      ov2[dateISO] ||= { dayOff:false, blocked:[] };
+      if(!ov2[dateISO]) ov2[dateISO] = { dayOff:false, blocked:[] };
       const b = new Set(ov2[dateISO].blocked || []);
       if(b.has(t)) b.delete(t); else b.add(t);
       ov2[dateISO].blocked = Array.from(b).sort();
@@ -656,7 +662,7 @@ function hydrateAdminTimes(dateISO){
 
 function saveDayOffToggle(dateISO){
   const ov = getOverrides();
-  ov[dateISO] ||= { dayOff:false, blocked:[] };
+  if(!ov[dateISO]) ov[dateISO] = { dayOff:false, blocked:[] };
   ov[dateISO].dayOff = $("#aDayOff").checked;
   if(ov[dateISO].dayOff){
     // if day off, no need to keep individual blocks
