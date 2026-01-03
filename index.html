@@ -320,24 +320,28 @@
         <!-- Admin Desk -->
         <div id="admin" class="admin">
           <div class="admin-head">
-            <h2>Admin Booking Desk</h2>
-            <p class="section-sub">Confirm/decline requests and block/open times so you never double-book.</p>
+            <div>
+              <p class="eyebrow">Admin Booking Desk</p>
+              <h2>Admin Booking Desk</h2>
+              <p class="section-sub">Confirm/decline requests and edit the Book a Date &amp; Time schedule so you never double-book.</p>
+            </div>
             <div class="admin-actions">
-              <button class="ghost" id="lockAdmin">Lock Admin Desk</button>
+              <button class="ghost" id="lockAdmin" aria-pressed="false">Lock Admin Desk</button>
             </div>
           </div>
 
-          <div class="admin-grid">
-            <div class="panel">
-              <h3>Admin access</h3>
-              <p class="muted">Enter the 4-digit PIN to unlock the booking tools.</p>
-              <div class="split">
-                <input class="input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" />
-                <button class="btn" id="unlockAdmin">Unlock</button>
-              </div>
-              <div class="muted tiny" id="pinNote"></div>
+          <div class="panel admin-access">
+            <h3>Admin access</h3>
+            <p class="muted">Enter the 4-digit PIN to unlock the booking tools.</p>
+            <div class="split access-row">
+              <input class="input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" />
+              <button class="btn" id="unlockAdmin">Unlock</button>
             </div>
+            <div class="status" id="lockStatus">Admin desk locked.</div>
+            <div class="muted tiny" id="pinNote"></div>
+          </div>
 
+          <div class="admin-grid">
             <div class="panel admin-only" data-admin>
               <h3>Request queue</h3>
               <p class="muted">Add incoming requests and confirm/decline them on the spot.</p>

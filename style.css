@@ -219,11 +219,29 @@ textarea.input{resize:vertical}
 
 .hr{border:none; border-top:1px solid rgba(255,255,255,.12); margin:16px 0}
 
-.admin{margin-top:26px}
-.admin-head{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap}
+.eyebrow{color:var(--muted); text-transform:uppercase; letter-spacing:.12em; font-size:11px; font-weight:800; margin:0 0 6px}
+
+.admin{
+  margin-top:26px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--radius);
+  background: linear-gradient(135deg, rgba(40,99,186,.07), rgba(177,31,59,.08)), rgba(13,16,30,.8);
+  padding:18px;
+  box-shadow: var(--shadow);
+}
+.admin-head{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:12px; margin-bottom:12px}
 .admin-actions{display:flex; gap:10px}
 .admin-grid{display:grid; grid-template-columns: 1fr 2fr; gap:14px; margin-top:12px}
 .admin-only.is-locked{display:none}
+
+.admin-access{background: linear-gradient(120deg, rgba(255,255,255,.08), rgba(255,255,255,.02));}
+.access-row{align-items:center}
+.status{margin-top:10px; font-weight:800; color:var(--muted);}
+.status.ok{color:rgba(46, 204, 113, .95)}
+.status::before{content:""; display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; background: rgba(255,255,255,.4); box-shadow:0 0 0 4px rgba(255,255,255,.06)}
+.status.ok::before{background: rgba(46, 204, 113, .95); box-shadow:0 0 0 4px rgba(46, 204, 113, .16)}
+
+button[disabled]{opacity:.55; cursor:not-allowed}
 
 .table-wrap{overflow:auto; border-radius:16px; border:1px solid rgba(255,255,255,.12)}
 .table{width:100%; border-collapse:collapse; min-width:720px; background: rgba(0,0,0,.25)}
