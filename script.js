@@ -11,6 +11,12 @@ const CONFIG = {
   SHOP_PHONE_DISPLAY: "(954) 626-0836", // shown on page
   SHOP_EMAIL: "info@sawgrasskingscuts.com",
   ADMIN_PIN: "1234", // <- change (client-side only)
+  BARBER_PINS: {
+    "barber-1": "1111",
+    "barber-2": "2222",
+    "barber-3": "3333",
+    "barber-4": "4444",
+  },
   SLOT_MINUTES: 30,
   MAX_DAYS_AHEAD: 30,
 
@@ -205,9 +211,27 @@ function defaultBarbers(){
     id: `barber-${idx+1}`,
     name: `Barber ${idx+1}`,
     label: "",
+    pin: CONFIG.BARBER_PINS?.[`barber-${idx+1}`] || CONFIG.ADMIN_PIN,
     active: true,
     createdAt: now + idx,
   }));
+}
+
+function applyBarberPins(barbers){
+  const pins = CONFIG.BARBER_PINS || {};
+  let changed = false;
+
+  const normalized = (Array.isArray(barbers) ? barbers : []).map((b, idx)=>{
+    const desiredPin = pins[b.id] || pins[`barber-${idx+1}`] || b.pin || CONFIG.ADMIN_PIN;
+    if(b.pin !== desiredPin){
+      changed = true;
+      return { ...b, pin: desiredPin };
+    }
+    return b;
+  });
+
+  if(changed) saveJSON(LS.barbers, normalized);
+  return normalized;
 }
 
 function migrateLegacyStructures(){
@@ -216,6 +240,7 @@ function migrateLegacyStructures(){
     barbers = defaultBarbers();
     saveJSON(LS.barbers, barbers);
   }
+  barbers = applyBarberPins(barbers);
 
   const defaultBarberId = barbers[0]?.id || "barber-1";
 
@@ -1090,15 +1115,29 @@ function applyAdminLock(){
     : "Unlocked on this device (client-side only).";
 }
 
+function getBarberPin(barberId){
+  if(!barberId) return String(CONFIG.ADMIN_PIN || "");
+
+  const pins = CONFIG.BARBER_PINS || {};
+  if(pins[barberId]) return String(pins[barberId]);
+
+  const barber = getBarbers().find(b=> b.id === barberId);
+  if(barber?.pin) return String(barber.pin);
+
+  return String(CONFIG.ADMIN_PIN || "");
+}
+
 function unlockAdmin(){
   const pin = $("#pinInput").value.trim();
-  const expectedPin = String(CONFIG.ADMIN_PIN || "").trim();
+  const barberId = getSelectedBarberId("admin") || getActiveBarberFallback();
+  const expectedPin = getBarberPin(barberId).trim();
+  const barberName = getBarbers().find(b=> b.id === barberId)?.name || "barber";
 
   if(pin === expectedPin){
     setAdminUnlocked(true);
     $("#pinInput").value = "";
   } else {
-    $("#pinNote").textContent = "Wrong PIN.";
+    $("#pinNote").textContent = `Wrong PIN for ${barberName}.`;
   }
 }
 
