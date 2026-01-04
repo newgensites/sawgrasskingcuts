@@ -209,12 +209,11 @@ function setSyncStatus(connected){
   el.classList.toggle("ok", connected);
 }
 
-function showDbBanner(message){
-  const banner = $("#dbBanner");
-  if(!banner) return;
-  banner.textContent = message || "";
-  banner.classList.toggle("hidden", !message);
+function showDbBanner() {
+  // Firebase intentionally removed
+  // No database banner needed
 }
+
 
 function getBookings(){
   return state.bookings || [];
