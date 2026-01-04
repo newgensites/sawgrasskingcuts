@@ -311,6 +311,9 @@ textarea.input{resize:vertical}
   padding:18px;
   box-shadow: var(--shadow);
 }
+.barber-desk{
+  background: linear-gradient(135deg, rgba(31,165,116,.18), rgba(16,98,200,.14)), rgba(14,22,46,.9);
+}
 .admin-head{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:12px; margin-bottom:12px}
 .admin-actions{display:flex; gap:10px}
 .admin-grid{display:grid; grid-template-columns: 1fr 2fr; gap:14px; margin-top:12px}

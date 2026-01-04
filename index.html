@@ -24,6 +24,7 @@
       </div>
       <div class="topbar-right">
         <a class="mini" href="#book">Book Now</a>
+        <a class="mini" href="#barberDesk">Barber Desk</a>
         <a class="mini" href="#admin">Admin</a>
       </div>
     </div>
@@ -45,6 +46,7 @@
         <a href="#gallery">Work</a>
         <a href="#about">About</a>
         <a href="#contact">Contact</a>
+        <a href="#barberDesk">Barber Desk</a>
         <a class="btn" href="#book">Book a Date</a>
       </nav>
 
@@ -56,6 +58,7 @@
       <a href="#gallery">Work</a>
       <a href="#about">About</a>
       <a href="#contact">Contact</a>
+      <a href="#barberDesk" class="ghost">Barber Desk</a>
       <a href="#book" class="btn">Book a Date</a>
       <a href="#admin" class="ghost">Admin</a>
     </div>
@@ -335,6 +338,41 @@
         </div>
 
         <!-- Admin Desk -->
+        <div id="barberDesk" class="admin barber-desk">
+          <div class="admin-head">
+            <div>
+              <p class="eyebrow">Barber Booking Desk</p>
+              <h2>Barber Booking Desk</h2>
+              <p class="section-sub">Secure, barber-only desk with its own passcodes.</p>
+            </div>
+            <div class="admin-actions">
+              <button class="ghost" id="lockBarberDesk" aria-pressed="false">Lock Barber Desk</button>
+            </div>
+          </div>
+
+          <div class="panel admin-access">
+            <h3>Desk access</h3>
+            <p class="muted">Enter a passcode to unlock. Multiple passcodes are supported.</p>
+            <div class="split access-row">
+              <input class="input" id="barberPasscodeInput" type="password" placeholder="Passcode" />
+              <button class="btn" id="unlockBarberDesk">Unlock</button>
+            </div>
+            <div class="status" id="barberLockStatus">Barber desk locked.</div>
+            <div class="muted tiny" id="barberLockNote"></div>
+          </div>
+
+          <div class="panel admin-only is-locked" data-barber id="barberPasscodeManager">
+            <h3>Passcode list</h3>
+            <p class="muted">Add extra passcodes for teammates. Stored only on this device.</p>
+            <div class="split access-row">
+              <input class="input" id="newBarberPasscode" type="text" placeholder="New passcode" />
+              <button class="ghost" id="addBarberPasscode">Add passcode</button>
+            </div>
+            <div class="chip-row" id="barberPasscodeList"></div>
+            <div class="muted tiny" id="barberPasscodeNote"></div>
+          </div>
+        </div>
+
         <div id="admin" class="admin">
           <div class="admin-head">
             <div>
@@ -519,6 +557,7 @@
           <a href="#services">Services</a>
           <a href="#gallery">Work</a>
           <a href="#contact">Contact</a>
+          <a href="#barberDesk">Barber Desk</a>
           <a href="#admin">Admin</a>
         </div>
       </div>
