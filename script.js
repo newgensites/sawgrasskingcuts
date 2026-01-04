@@ -379,9 +379,14 @@ function clearTaken(dateISO, timeHHMM, barberId){
   setBookings(bookings, id);
 }
 
+function isApprovedBooking(booking){
+  const status = booking?.status || "approved";
+  return status !== "pending" && status !== "declined";
+}
+
 function isTaken(dateISO, timeHHMM, barberId){
   const id = barberId || getSelectedBarberId();
-  return getBookings(id).some(b=> b.date === dateISO && b.time === timeHHMM && b.status !== "declined");
+  return getBookings(id).some(b=> b.date === dateISO && b.time === timeHHMM && isApprovedBooking(b));
 }
 
 function isBlocked(dateISO, timeHHMM, barberId){
