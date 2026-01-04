@@ -398,7 +398,7 @@
 
                 <div class="fullrow">
                   <button class="btn full" id="addToQueue">Add to Queue</button>
-                  <div class="muted tiny center">Requests sync across devices when online; saved locally if offline.</div>
+                  <div class="muted tiny center">Requests are saved locally on this device (no cloud sync).</div>
                 </div>
               </div>
 
@@ -463,7 +463,7 @@
             <button class="ghost full" id="btnCameraRoll">Upload from camera roll</button>
           </div>
 
-          <p class="tiny muted">Gallery updates sync across devices when connected. Without a database, photos stay on this device only.</p>
+          <p class="tiny muted">Gallery updates are saved locally on this device and do not sync to other browsers.</p>
           <p class="tiny muted" id="photoUploadNote"></p>
 
           <input type="file" accept="image/*" capture="environment" id="inputTakePhoto" hidden />
@@ -499,7 +499,6 @@
     </footer>
   </main>
 
-  <script type="module" src="firebase.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 </html>
