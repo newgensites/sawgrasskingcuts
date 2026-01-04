@@ -1,9 +1,7 @@
 {
   "name": "sawgrasskingscuts",
   "version": "1.0.0",
-  "description": "Sawgrass Kings Cuts booking site with database sync",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  }
+  "description": "Sawgrass Kings Cuts booking site with static hosting + Firestore sync",
+  "main": "index.html",
+  "scripts": {}
 }

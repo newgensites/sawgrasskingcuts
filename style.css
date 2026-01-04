@@ -273,6 +273,7 @@ textarea.input{resize:vertical}
 .muted{color:var(--muted)}
 .tiny{font-size:12px}
 .center{text-align:center}
+.hidden{display:none !important}
 .small-spacer{height:10px}
 .full{width:100%}
 
@@ -292,6 +293,9 @@ textarea.input{resize:vertical}
 .admin-actions{display:flex; gap:10px}
 .admin-grid{display:grid; grid-template-columns: 1fr 2fr; gap:14px; margin-top:12px}
 .admin-only.is-locked{display:none}
+.db-banner{background: rgba(231, 76, 60, .16); border:1px solid rgba(231, 76, 60, .28); color: rgba(231, 76, 60, .95); padding:12px 14px; border-radius:12px; margin:12px 0; font-weight:800; text-align:center;}
+.sync-indicator{font-size:12px; color:var(--muted); font-weight:800; display:inline-flex; align-items:center; gap:6px;}
+.sync-indicator.ok{color: rgba(46, 204, 113, .95);}
 .upload-grid{display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:10px; margin:12px 0 6px}
 #photoUploadNote.ok{color: rgba(46, 204, 113, .95)}
 #photoUploadNote.error{color: rgba(231, 76, 60, .95)}

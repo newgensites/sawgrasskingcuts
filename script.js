@@ -1,10 +1,19 @@
+import {
+  db,
+  firebaseReady,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc
+} from "./firebase.js";
+
 /* =========================================================
    VASEAN Barbershop Booking + Admin Desk
    - Static (GitHub Pages friendly)
-   - Uses localStorage for:
-     - confirmed bookings (taken times)
-     - date/time overrides (blocked times)
-     - request queue
+   - Syncs with Firestore when configured
+   - Falls back to localStorage when offline/not configured
    - Booking sends a pre-filled SMS to SHOP_PHONE
    ========================================================= */
 
@@ -29,48 +38,18 @@ const CONFIG = {
   }
 };
 
-const API_BASE = "/api";
-
 const LS = {
-  bookings: "vb_bookings_v1",     // { "YYYY-MM-DD": { "HH:MM": bookingObj } }
-  overrides: "vb_overrides_v1",   // { "YYYY-MM-DD": { dayOff: bool, blocked: ["HH:MM"] } }
-  queue: "vb_queue_v1",           // [ {id,...} ]
+  bookings: "vb_bookings_v2",     // [ bookingObj ]
+  overrides: "vb_overrides_v2",   // { "YYYY-MM-DD": { dayOff: bool, blocked: ["HH:MM"] } }
+  queue: "vb_queue_v2",           // [ {id,...} ]
   adminUnlocked: "vb_admin_unlocked_v1",
-  gallery: "vb_gallery_v1",
+  gallery: "vb_gallery_v2",       // [ {id, caption, imageData} ]
 };
 
 // older gallery keys that may contain photos from previous visits/devices
 const LEGACY_GALLERY_KEYS = ["vb_gallery", "vb_photos", "vb_gallery_v0"];
 
 const SYNC_KEYS = new Set([LS.bookings, LS.overrides, LS.queue, LS.gallery]);
-
-async function persistState(key, data){
-  if(typeof fetch === "undefined") return;
-  try{
-    await fetch(`${API_BASE}/state/${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data }),
-    });
-  }catch(err){
-    console.warn("Unable to sync with server", err);
-  }
-}
-
-async function syncFromServer(){
-  if(typeof fetch === "undefined") return;
-  try{
-    const res = await fetch(`${API_BASE}/state`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if(data.bookings) setBookings(data.bookings, { sync:false });
-    if(data.overrides) setOverrides(data.overrides, { sync:false });
-    if(data.queue) setQueue(data.queue, { sync:false });
-    if(data.gallery) setGalleryPhotos(data.gallery, { sync:false });
-  }catch(err){
-    console.warn("Unable to load state from server", err);
-  }
-}
 
 /* ----------------- helpers ----------------- */
 const $ = (sel) => document.querySelector(sel);
@@ -166,72 +145,148 @@ function clampDateInputs(){
 }
 
 /* ----------------- data ops ----------------- */
-function getBookings(){
-  return loadJSON(LS.bookings, {});
-}
-function setBookings(b, opts={ sync:true }){
-  saveJSON(LS.bookings, b);
-  if(opts.sync !== false) persistState("bookings", b);
-}
-function getOverrides(){
-  return loadJSON(LS.overrides, {});
-}
-function setOverrides(o, opts={ sync:true }){
-  saveJSON(LS.overrides, o);
-  if(opts.sync !== false) persistState("overrides", o);
-}
-function getQueue(){
-  return loadJSON(LS.queue, []);
-}
-function setQueue(q, opts={ sync:true }){
-  saveJSON(LS.queue, q);
-  if(opts.sync !== false) persistState("queue", q);
-}
+let useLocalMode = !firebaseReady;
+let realtimeUnsubs = [];
+let listenersReady = false;
 
-function migrateLegacyGallery(){
-  // If current gallery is empty, attempt to pull photos from legacy keys.
-  const current = loadJSON(LS.gallery, []);
-  if(current && current.length) return current;
-
-  for(const key of LEGACY_GALLERY_KEYS){
-    const legacy = loadJSON(key, null);
-    if(Array.isArray(legacy) && legacy.length){
-      // Save a copy under the current key so all devices/tabs pick it up.
-      setGalleryPhotos(legacy);
-      return legacy;
-    }
+function uuid(){
+  if(typeof crypto !== "undefined" && crypto.randomUUID){
+    return crypto.randomUUID();
   }
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2,8)}`;
+}
 
+function normalizeBookingArray(raw){
+  if(Array.isArray(raw)) return raw;
+  if(raw && typeof raw === "object"){
+    const list = [];
+    Object.entries(raw).forEach(([date, times])=>{
+      Object.entries(times || {}).forEach(([time, val])=>{
+        const status = val?.status === "confirmed" ? "approved" : (val?.status || "approved");
+        list.push({
+          id: val?.id || uuid(),
+          name: val?.name || "",
+          phone: val?.phone || "",
+          service: val?.service || "Unknown",
+          date,
+          time,
+          notes: val?.notes || "",
+          status,
+          createdAt: val?.createdAt || Date.now(),
+        });
+      });
+    });
+    return list;
+  }
   return [];
 }
 
-function getGalleryPhotos(){
-  return migrateLegacyGallery();
+function migrateLegacyGallery(raw){
+  // If current gallery is empty, attempt to pull photos from legacy keys.
+  const current = Array.isArray(raw) ? raw : [];
+  if(current && current.length && typeof current[0] !== "string") return current;
+
+  let photos = current;
+  if(!photos.length){
+    for(const key of LEGACY_GALLERY_KEYS){
+      const legacy = loadJSON(key, null);
+      if(Array.isArray(legacy) && legacy.length){
+        photos = legacy;
+        break;
+      }
+    }
+  }
+
+  if(Array.isArray(photos) && photos.length && typeof photos[0] === "string"){
+    const normalized = photos.map((src, idx)=>({
+      id: uuid(),
+      caption: `Gallery ${idx + 1}`,
+      imageData: src,
+      createdAt: Date.now()
+    }));
+    saveJSON(LS.gallery, normalized);
+    return normalized;
+  }
+
+  return photos || [];
 }
-function setGalleryPhotos(arr, opts={ sync:true }){
-  saveJSON(LS.gallery, arr);
-  if(opts.sync !== false) persistState("gallery", arr);
+
+const state = {
+  bookings: normalizeBookingArray(loadJSON(LS.bookings, [])),
+  overrides: loadJSON(LS.overrides, {}),
+  queue: loadJSON(LS.queue, []),
+  gallery: migrateLegacyGallery(loadJSON(LS.gallery, [])),
+};
+
+function setSyncStatus(connected){
+  const el = $("#syncStatus");
+  if(!el) return;
+  el.textContent = connected ? "Connected" : "Offline/Local Mode";
+  el.classList.toggle("ok", connected);
+}
+
+function showDbBanner(message){
+  const banner = $("#dbBanner");
+  if(!banner) return;
+  banner.textContent = message || "";
+  banner.classList.toggle("hidden", !message);
+}
+
+function getBookings(){
+  return state.bookings || [];
+}
+function setBookings(list, opts={ skipLocal:false }){
+  state.bookings = Array.isArray(list) ? list : [];
+  if(!opts.skipLocal) saveJSON(LS.bookings, state.bookings);
+}
+
+function getBookingMap(){
+  const map = {};
+  getBookings().forEach(b=>{
+    if(!b.date || !b.time) return;
+    if(!map[b.date]) map[b.date] = {};
+    map[b.date][b.time] = b;
+  });
+  return map;
+}
+
+function getOverrides(){
+  return state.overrides || {};
+}
+function setOverrides(o, opts={ skipLocal:false }){
+  state.overrides = o || {};
+  if(!opts.skipLocal) saveJSON(LS.overrides, state.overrides);
+}
+
+function getQueue(){
+  return state.queue || [];
+}
+function setQueue(q, opts={ skipLocal:false }){
+  state.queue = Array.isArray(q) ? q : [];
+  if(!opts.skipLocal) saveJSON(LS.queue, state.queue);
+}
+
+function getGalleryPhotos(){
+  return state.gallery || [];
+}
+function setGalleryPhotos(arr, opts={ skipLocal:false }){
+  state.gallery = Array.isArray(arr) ? migrateLegacyGallery(arr) : [];
+  if(!opts.skipLocal) saveJSON(LS.gallery, state.gallery);
 }
 
 function markTaken(dateISO, timeHHMM, bookingObj){
-  const bookings = getBookings();
-  if(!bookings[dateISO]) bookings[dateISO] = {};
-  bookings[dateISO][timeHHMM] = bookingObj || { taken:true };
+  const bookings = getBookings().filter(b=> !(b.date === dateISO && b.time === timeHHMM));
+  bookings.push(bookingObj || { id: uuid(), date: dateISO, time: timeHHMM, status: "approved" });
   setBookings(bookings);
 }
 
 function clearTaken(dateISO, timeHHMM){
-  const bookings = getBookings();
-  if(bookings[dateISO] && bookings[dateISO][timeHHMM]){
-    delete bookings[dateISO][timeHHMM];
-    if(Object.keys(bookings[dateISO]).length===0) delete bookings[dateISO];
-    setBookings(bookings);
-  }
+  const bookings = getBookings().filter(b=> !(b.date === dateISO && b.time === timeHHMM));
+  setBookings(bookings);
 }
 
 function isTaken(dateISO, timeHHMM){
-  const bookings = getBookings();
-  return Boolean(bookings && bookings[dateISO] && bookings[dateISO][timeHHMM]);
+  return getBookings().some(b=> b.date === dateISO && b.time === timeHHMM && b.status !== "declined");
 }
 
 function isBlocked(dateISO, timeHHMM){
@@ -245,6 +300,283 @@ function isBlocked(dateISO, timeHHMM){
 function isDayOff(dateISO){
   const ov = getOverrides();
   return Boolean(ov && ov[dateISO] && ov[dateISO].dayOff);
+}
+
+function normalizeTimestamp(val){
+  if(val && typeof val.toMillis === "function") return val.toMillis();
+  return val || Date.now();
+}
+
+function blockedSlotsToMap(blockedSlots){
+  const map = {};
+  (blockedSlots || []).forEach(slot=>{
+    if(!slot?.date) return;
+    if(!map[slot.date]) map[slot.date] = { dayOff:false, blocked:[] };
+    if(slot.time === "DAY_OFF"){
+      map[slot.date].dayOff = true;
+    } else if(slot.time){
+      map[slot.date].blocked.push(slot.time);
+    }
+  });
+  Object.values(map).forEach(entry=> entry.blocked = (entry.blocked || []).sort());
+  return map;
+}
+
+function mapToBlockedSlots(map){
+  const slots = [];
+  Object.entries(map || {}).forEach(([date, entry])=>{
+    if(entry.dayOff) slots.push({ date, time: "DAY_OFF" });
+    (entry.blocked || []).forEach(time=> slots.push({ date, time }));
+  });
+  return slots;
+}
+
+function usingFirestore(){
+  return firebaseReady && db && !useLocalMode;
+}
+
+/* ----------------- firestore sync ----------------- */
+function snapshotError(err){
+  console.warn("Realtime sync disabled, switching to local mode", err);
+  useLocalMode = true;
+  setSyncStatus(false);
+  showDbBanner("Database not configured. Using local-only mode.");
+}
+
+function normalizeDoc(docSnap){
+  const data = docSnap.data() || {};
+  return {
+    id: data.id || docSnap.id,
+    ...data,
+    createdAt: normalizeTimestamp(data.createdAt)
+  };
+}
+
+async function saveBookingRecord(booking){
+  const payload = { ...booking };
+  if(!payload.id) payload.id = uuid();
+  if(!payload.createdAt) payload.createdAt = Date.now();
+
+  const list = getBookings().filter(b=> b.id !== payload.id);
+  list.push(payload);
+  setBookings(list);
+
+  if(usingFirestore()){
+    try{
+      const toSave = { ...payload };
+      if(!booking.createdAt) toSave.createdAt = serverTimestamp();
+      await setDoc(doc(db, "bookings", payload.id), toSave, { merge:true });
+    }catch(err){
+      console.warn("Failed to save booking to Firestore", err);
+      snapshotError(err);
+    }
+  }
+
+  renderCalendar();
+  refreshBookingPickers(payload.date);
+}
+
+async function updateBookingStatus(id, status){
+  const list = getBookings();
+  const idx = list.findIndex(b=> b.id === id);
+  if(idx !== -1){
+    list[idx].status = status;
+    setBookings([...list]);
+  }
+
+  if(usingFirestore()){
+    try{
+      await setDoc(doc(db, "bookings", id), { status }, { merge:true });
+    }catch(err){
+      console.warn("Failed to update booking status", err);
+      snapshotError(err);
+    }
+  }
+
+  renderCalendar();
+}
+
+async function saveOverridesRemote(map){
+  setOverrides(map);
+
+  if(usingFirestore()){
+    try{
+      await setDoc(doc(db, "overrides", "calendar"), {
+        blockedSlots: mapToBlockedSlots(map),
+        updatedAt: serverTimestamp(),
+      });
+    }catch(err){
+      console.warn("Failed to save overrides", err);
+      snapshotError(err);
+    }
+  }
+}
+
+async function saveQueueItem(item){
+  const payload = { ...item };
+  if(!payload.id) payload.id = uuid();
+  if(!payload.createdAt) payload.createdAt = Date.now();
+
+  const next = getQueue().filter(q=> q.id !== payload.id);
+  next.unshift(payload);
+  setQueue(next);
+
+  if(usingFirestore()){
+    try{
+      const toSave = { ...payload };
+      if(!item.createdAt) toSave.createdAt = serverTimestamp();
+      await setDoc(doc(db, "queue", payload.id), toSave, { merge:true });
+    }catch(err){
+      console.warn("Failed to save queue item", err);
+      snapshotError(err);
+    }
+  }
+
+  renderQueue();
+}
+
+async function updateQueueItem(id, changes){
+  const list = getQueue();
+  const idx = list.findIndex(q=> q.id === id);
+  if(idx !== -1){
+    list[idx] = { ...list[idx], ...changes };
+    setQueue([...list]);
+  }
+
+  if(usingFirestore()){
+    try{
+      await setDoc(doc(db, "queue", id), changes, { merge:true });
+    }catch(err){
+      console.warn("Failed to update queue item", err);
+      snapshotError(err);
+    }
+  }
+
+  renderQueue();
+}
+
+async function removeQueueItem(id){
+  const next = getQueue().filter(q=> q.id !== id);
+  setQueue(next);
+
+  if(usingFirestore()){
+    try{
+      await deleteDoc(doc(db, "queue", id));
+    }catch(err){
+      console.warn("Failed to delete queue item", err);
+      snapshotError(err);
+    }
+  }
+
+  renderQueue();
+}
+
+async function saveGalleryItem(item){
+  const payload = { ...item };
+  if(!payload.id) payload.id = uuid();
+  if(!payload.createdAt) payload.createdAt = Date.now();
+
+  const next = [payload, ...getGalleryPhotos().filter(p=> p.id !== payload.id)].slice(0, 9);
+  setGalleryPhotos(next);
+
+  if(usingFirestore()){
+    try{
+      const toSave = { ...payload };
+      if(!item.createdAt) toSave.createdAt = serverTimestamp();
+      await setDoc(doc(db, "gallery", payload.id), toSave, { merge:true });
+    }catch(err){
+      console.warn("Failed to save gallery item", err);
+      snapshotError(err);
+    }
+  }
+
+  renderGallery();
+  renderPhotoManager();
+}
+
+async function removeGalleryItem(id){
+  const next = getGalleryPhotos().filter(p=> p.id !== id);
+  setGalleryPhotos(next);
+
+  if(usingFirestore()){
+    try{
+      await deleteDoc(doc(db, "gallery", id));
+    }catch(err){
+      console.warn("Failed to delete gallery item", err);
+      snapshotError(err);
+    }
+  }
+
+  renderGallery();
+  renderPhotoManager();
+}
+
+function startRealtimeSync(){
+  if(!firebaseReady || !db){
+    useLocalMode = true;
+    setSyncStatus(false);
+    showDbBanner("Database not configured. Using local-only mode.");
+    return;
+  }
+
+  realtimeUnsubs.forEach(fn=> fn && fn());
+  realtimeUnsubs = [];
+
+  try{
+    const bookingsRef = collection(db, "bookings");
+    realtimeUnsubs.push(onSnapshot(bookingsRef, (snap)=>{
+      const items = snap.docs.map(normalizeDoc);
+      useLocalMode = false;
+      showDbBanner("");
+      setSyncStatus(true);
+      setBookings(items);
+      renderCalendar();
+      const bDate = $("#bDate").value;
+      if(bDate) hydrateBookingTimes(bDate);
+      const qDate = $("#qDate").value;
+      if(qDate) hydrateQueueTimes(qDate);
+    }, snapshotError));
+
+    const ovRef = doc(db, "overrides", "calendar");
+    realtimeUnsubs.push(onSnapshot(ovRef, (snap)=>{
+      const data = snap.exists() ? snap.data() : {};
+      const map = blockedSlotsToMap(data.blockedSlots || []);
+      useLocalMode = false;
+      showDbBanner("");
+      setSyncStatus(true);
+      setOverrides(map);
+      renderCalendar();
+      const aDate = $("#aDate").value;
+      if(aDate) hydrateAdminTimes(aDate);
+      const qDate = $("#qDate").value;
+      if(qDate) hydrateQueueTimes(qDate);
+    }, snapshotError));
+
+    const queueRef = collection(db, "queue");
+    realtimeUnsubs.push(onSnapshot(queueRef, (snap)=>{
+      const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+      useLocalMode = false;
+      showDbBanner("");
+      setSyncStatus(true);
+      setQueue(items);
+      renderQueue();
+    }, snapshotError));
+
+    const galleryRef = collection(db, "gallery");
+    realtimeUnsubs.push(onSnapshot(galleryRef, (snap)=>{
+      const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+      useLocalMode = false;
+      showDbBanner("");
+      setSyncStatus(true);
+      setGalleryPhotos(items);
+      renderGallery();
+      renderPhotoManager();
+    }, snapshotError));
+
+    listenersReady = true;
+  }catch(err){
+    snapshotError(err);
+  }
 }
 
 /* ----------------- slots generation ----------------- */
@@ -345,18 +677,18 @@ function renderGallery(){
 
   const items = photos.length ? photos : Array.from({ length: 6 }, ()=> null);
 
-  items.forEach((src, idx)=>{
+  items.forEach((photo, idx)=>{
     const cell = document.createElement("div");
     cell.className = "photo";
 
-    if(src){
+    if(photo){
       cell.classList.add("has-img");
       const img = document.createElement("img");
-      img.src = src;
+      img.src = photo.imageData;
       img.alt = `Recent cut ${idx + 1}`;
       cell.title = "Open full photo";
       cell.appendChild(img);
-      cell.addEventListener("click", ()=> window.open(src, "_blank"));
+      cell.addEventListener("click", ()=> window.open(photo.imageData, "_blank"));
     } else {
       cell.textContent = "Photo Slot";
     }
@@ -366,7 +698,7 @@ function renderGallery(){
 
   if(hint){
     hint.textContent = photos.length
-      ? "Recent uploads are saved on this device. Tap to open."
+      ? "Recent uploads sync across devices when online. Tap to open."
       : "No uploads yet. Add fresh cuts in the admin desk.";
   }
 }
@@ -386,11 +718,11 @@ function renderPhotoManager(){
     return;
   }
 
-  photos.forEach((src, idx)=>{
+  photos.forEach((item, idx)=>{
     const row = document.createElement("div");
     row.className = "photo-row";
     row.innerHTML = `
-      <div class="photo-thumb">${src ? `<img src="${src}" alt="Recent work ${idx + 1}">` : ""}</div>
+      <div class="photo-thumb">${item?.imageData ? `<img src="${item.imageData}" alt="Recent work ${idx + 1}">` : ""}</div>
       <div class="photo-meta">
         <div class="tiny muted">Photo ${idx + 1}</div>
         <div class="photo-actions">
@@ -407,21 +739,18 @@ function renderPhotoManager(){
       const idx = Number(btn.getAttribute("data-idx"));
       const act = btn.getAttribute("data-act");
       const photosNow = getGalleryPhotos();
-      const src = photosNow[idx];
+      const item = photosNow[idx];
 
-      if(typeof src === "undefined") return;
+      if(typeof item === "undefined") return;
 
       if(act === "open"){
-        window.open(src, "_blank");
+        window.open(item.imageData, "_blank");
       }
 
       if(act === "delete"){
         const ok = confirm("Delete this photo from Recent Work?");
         if(ok){
-          photosNow.splice(idx,1);
-          setGalleryPhotos(photosNow);
-          renderGallery();
-          renderPhotoManager();
+          removeGalleryItem(item.id);
           setPhotoUploadNote("Photo removed from Recent Work.", true);
         }
       }
@@ -450,11 +779,13 @@ function handlePhotoFile(file, sourceLabel){
 
   const reader = new FileReader();
   reader.onload = (e)=>{
-    const photos = getGalleryPhotos();
-    photos.unshift(e.target.result);
-    setGalleryPhotos(photos.slice(0, 9));
-    renderGallery();
-    renderPhotoManager();
+    const item = {
+      id: uuid(),
+      caption: sourceLabel || "Gallery upload",
+      imageData: e.target.result,
+      createdAt: Date.now(),
+    };
+    saveGalleryItem(item);
     setPhotoUploadNote(`${sourceLabel || "Upload"} added to gallery.`, true);
   };
   reader.readAsDataURL(file);
@@ -626,7 +957,7 @@ function hydrateBookingTimes(dateISO){
   }
 }
 
-function sendBookingSMS(){
+async function sendBookingSMS(){
   const name = $("#bName").value.trim();
   const phone = $("#bPhone").value.trim();
   const service = $("#bService").value;
@@ -645,6 +976,32 @@ function sendBookingSMS(){
     hydrateBookingTimes(date);
     return;
   }
+
+  const bookingId = uuid();
+  const bookingPayload = {
+    id: bookingId,
+    name,
+    phone,
+    service,
+    date,
+    time,
+    notes,
+    status: "pending",
+    createdAt: Date.now(),
+  };
+
+  await saveBookingRecord(bookingPayload);
+  await saveQueueItem({
+    id: bookingId,
+    name,
+    phone,
+    requestedService: service,
+    date,
+    time,
+    notes,
+    status: "pending",
+    createdAt: bookingPayload.createdAt,
+  });
 
   const msg =
 `Booking Request — ${CONFIG.SHOP_NAME}
@@ -688,7 +1045,7 @@ function applyAdminLock(){
 
   pinNote.textContent = locked
     ? "Locked. Enter PIN to unlock."
-    : "Unlocked on this device (localStorage).";
+    : "Unlocked on this device (client-side only).";
 }
 
 function unlockAdmin(){
@@ -716,17 +1073,18 @@ function renderQueue(){
 
   q.forEach(item=>{
     const tr = document.createElement("tr");
-    const when = `${item.date} @ ${formatTime12(item.time)}`;
+    const when = item.date && item.time ? `${item.date} @ ${formatTime12(item.time)}` : "—";
+    const service = item.requestedService || item.service || "Request";
 
     const statusChip =
-      item.status === "confirmed" ? `<span class="chip ok">Confirmed</span>` :
+      item.status === "approved" ? `<span class="chip ok">Approved</span>` :
       item.status === "declined" ? `<span class="chip no">Declined</span>` :
       `<span class="chip pending">Pending</span>`;
 
     tr.innerHTML = `
       <td>
         <div style="font-weight:900">${escapeHtml(item.name)}</div>
-        <div class="muted tiny">${escapeHtml(item.phone)} • ${escapeHtml(item.service)}</div>
+        <div class="muted tiny">${escapeHtml(item.phone)} • ${escapeHtml(service)}</div>
         <div class="muted tiny">${escapeHtml(item.notes || "")}</div>
       </td>
       <td>${escapeHtml(when)}</td>
@@ -765,16 +1123,19 @@ function addToQueue(){
     return;
   }
 
-  const q = getQueue();
-  q.unshift({
-    id: (typeof crypto !== "undefined" && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : String(Date.now()),
-    name, phone, service, date, time, notes,
+  const entry = {
+    id: uuid(),
+    name,
+    phone,
+    requestedService: service,
+    service,
+    date,
+    time,
+    notes,
     status: "pending",
     createdAt: Date.now()
-  });
-  setQueue(q);
+  };
+  saveQueueItem(entry);
 
   // clear
   $("#qName").value = "";
@@ -783,7 +1144,7 @@ function addToQueue(){
   renderQueue();
 }
 
-function handleQueueAction(act, id){
+async function handleQueueAction(act, id){
   const q = getQueue();
   const idx = q.findIndex(x=>x.id===id);
   if(idx === -1) return;
@@ -796,31 +1157,32 @@ function handleQueueAction(act, id){
       alert("That slot is already blocked/taken. Choose a different time.");
       return;
     }
-    markTaken(item.date, item.time, {
+    const existingBooking = getBookings().find(b=> b.id === item.id);
+    const bookingPayload = existingBooking || {
+      id: item.id,
       name: item.name,
       phone: item.phone,
-      service: item.service,
+      service: item.requestedService || item.service,
+      date: item.date,
+      time: item.time,
       notes: item.notes || "",
-      status: "confirmed",
-      confirmedAt: Date.now()
-    });
-    q[idx].status = "confirmed";
-    setQueue(q);
-    renderQueue();
+      status: "approved",
+      createdAt: item.createdAt || Date.now(),
+    };
+    await saveBookingRecord({ ...bookingPayload, status: "approved" });
+    await updateQueueItem(item.id, { status: "approved" });
     refreshBookingPickers(item.date);
     alert("Confirmed and saved to calendar (taken).");
   }
 
   if(act === "decline"){
-    q[idx].status = "declined";
-    setQueue(q);
-    renderQueue();
+    await updateQueueItem(item.id, { status: "declined" });
+    await updateBookingStatus(item.id, "declined");
   }
 
   if(act === "remove"){
-    q.splice(idx,1);
-    setQueue(q);
-    renderQueue();
+    await removeQueueItem(item.id);
+    await updateBookingStatus(item.id, "declined");
   }
 }
 
@@ -862,7 +1224,7 @@ function hydrateAdminTimes(dateISO){
       const b = new Set(ov2[dateISO].blocked || []);
       if(b.has(t)) b.delete(t); else b.add(t);
       ov2[dateISO].blocked = Array.from(b).sort();
-      setOverrides(ov2);
+      saveOverridesRemote(ov2);
       hydrateAdminTimes(dateISO);
       refreshBookingPickers(dateISO);
     });
@@ -879,7 +1241,7 @@ function saveDayOffToggle(dateISO){
     // if day off, no need to keep individual blocks
     ov[dateISO].blocked = ov[dateISO].blocked || [];
   }
-  setOverrides(ov);
+  saveOverridesRemote(ov);
   hydrateAdminTimes(dateISO);
   refreshBookingPickers(dateISO);
 }
@@ -888,7 +1250,7 @@ function clearOverridesForDate(dateISO){
   const ov = getOverrides();
   if(ov[dateISO]){
     delete ov[dateISO];
-    setOverrides(ov);
+    saveOverridesRemote(ov);
   }
   hydrateAdminTimes(dateISO);
   refreshBookingPickers(dateISO);
@@ -947,7 +1309,7 @@ function markDayAvailableFromQueue(){
   const ov = getOverrides();
   if(ov[dateISO]){
     delete ov[dateISO];
-    setOverrides(ov);
+    saveOverridesRemote(ov);
   }
 
   $("#aDate").value = dateISO;
@@ -965,16 +1327,24 @@ function escapeHtml(str){
 function onStorageSync(e){
   if(!SYNC_KEYS.has(e.key)) return;
 
-  // photos
+  if(e.key === LS.bookings){
+    setBookings(normalizeBookingArray(loadJSON(LS.bookings, [])), { skipLocal:true });
+  }
+
+  if(e.key === LS.overrides){
+    setOverrides(loadJSON(LS.overrides, {}), { skipLocal:true });
+  }
+
+  if(e.key === LS.queue){
+    setQueue(loadJSON(LS.queue, []), { skipLocal:true });
+    renderQueue();
+  }
+
   if(e.key === LS.gallery){
+    setGalleryPhotos(loadJSON(LS.gallery, []), { skipLocal:true });
     renderGallery();
     renderPhotoManager();
     return;
-  }
-
-  // queue only
-  if(e.key === LS.queue){
-    renderQueue();
   }
 
   // bookings/overrides impact calendar + pickers
@@ -996,10 +1366,14 @@ function setupStorageSync(){
 async function init(){
   hydrateLinks();
   setupMobileMenu();
-  await syncFromServer();
   renderGallery();
   renderPhotoManager();
   clampDateInputs();
+
+  if(!firebaseReady){
+    showDbBanner("Database not configured. Using local-only mode.");
+    setSyncStatus(false);
+  }
 
   // defaults
   const min = MIN_DATE;
@@ -1052,6 +1426,8 @@ async function init(){
   // apply lock state
   applyAdminLock();
   renderQueue();
+
+  startRealtimeSync();
 }
 
 document.addEventListener("DOMContentLoaded", init);
