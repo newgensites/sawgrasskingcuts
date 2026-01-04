@@ -6,38 +6,61 @@ import {
   getFirestore,
   onSnapshot,
   serverTimestamp,
-  setDoc
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// TODO: Replace with your real Firebase config (DO NOT commit secrets)
-// Option A: allow read/write for quick MVP (not secure)
-// Option B: recommended — use Firebase Auth (anonymous or email) and restrict writes in Firestore Security Rules.
+// -------------------------------------------------------------
+// Placeholder config — replace ALL values with your real keys.
+// -------------------------------------------------------------
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "REPLACE_WITH_YOUR_API_KEY",
+  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
+  messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+  appId: "REPLACE_WITH_YOUR_APP_ID",
 };
 
-function isConfigReady(cfg){
-  return cfg && Object.values(cfg).every(v=> v && !String(v).includes("YOUR_"));
+function hasRealConfig(cfg) {
+  if (!cfg) return false;
+  return Object.values(cfg).every((val) => typeof val === "string" && val && !val.startsWith("REPLACE_WITH_"));
 }
 
+let app = null;
 let db = null;
 let firebaseReady = false;
 
-if(isConfigReady(firebaseConfig)){
-  try{
-    const app = initializeApp(firebaseConfig);
+function initFirebase() {
+  if (firebaseReady || db) return db;
+  if (!hasRealConfig(firebaseConfig)) return null;
+
+  try {
+    app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     firebaseReady = true;
-  }catch(err){
+  } catch (err) {
     console.warn("Firebase init failed; using local mode", err);
     db = null;
     firebaseReady = false;
   }
+
+  return db;
 }
 
-export { db, firebaseReady, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc };
+initFirebase();
+
+function isFirebaseReady() {
+  return firebaseReady && !!db;
+}
+
+export {
+  db,
+  firebaseReady,
+  isFirebaseReady,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+};
