@@ -1,12 +1,16 @@
 import {
   db,
-  firebaseReady,
+  isFirebaseReady,
+  addDoc,
   collection,
   deleteDoc,
   doc,
   onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
-  setDoc
+  setDoc,
+  updateDoc
 } from "./firebase.js";
 
 /* =========================================================
@@ -145,7 +149,7 @@ function clampDateInputs(){
 }
 
 /* ----------------- data ops ----------------- */
-let useLocalMode = !firebaseReady;
+let useLocalMode = !isFirebaseReady();
 let realtimeUnsubs = [];
 let listenersReady = false;
 
@@ -332,7 +336,7 @@ function mapToBlockedSlots(map){
 }
 
 function usingFirestore(){
-  return firebaseReady && db && !useLocalMode;
+  return isFirebaseReady() && db && !useLocalMode;
 }
 
 /* ----------------- firestore sync ----------------- */
@@ -512,7 +516,8 @@ async function removeGalleryItem(id){
 }
 
 function startRealtimeSync(){
-  if(!firebaseReady || !db){
+  const ready = isFirebaseReady();
+  if(!ready || !db){
     useLocalMode = true;
     setSyncStatus(false);
     showDbBanner("Database not configured. Using local-only mode.");
@@ -522,10 +527,13 @@ function startRealtimeSync(){
   realtimeUnsubs.forEach(fn=> fn && fn());
   realtimeUnsubs = [];
 
+  useLocalMode = false;
+  setSyncStatus(true);
+
   try{
-    const bookingsRef = collection(db, "bookings");
+    const bookingsRef = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
     realtimeUnsubs.push(onSnapshot(bookingsRef, (snap)=>{
-      const items = snap.docs.map(normalizeDoc);
+      const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
       useLocalMode = false;
       showDbBanner("");
       setSyncStatus(true);
@@ -552,7 +560,7 @@ function startRealtimeSync(){
       if(qDate) hydrateQueueTimes(qDate);
     }, snapshotError));
 
-    const queueRef = collection(db, "queue");
+    const queueRef = query(collection(db, "queue"), orderBy("createdAt", "desc"));
     realtimeUnsubs.push(onSnapshot(queueRef, (snap)=>{
       const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
       useLocalMode = false;
@@ -562,7 +570,7 @@ function startRealtimeSync(){
       renderQueue();
     }, snapshotError));
 
-    const galleryRef = collection(db, "gallery");
+    const galleryRef = query(collection(db, "gallery"), orderBy("createdAt", "desc"));
     realtimeUnsubs.push(onSnapshot(galleryRef, (snap)=>{
       const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
       useLocalMode = false;
@@ -1370,9 +1378,11 @@ async function init(){
   renderPhotoManager();
   clampDateInputs();
 
-  if(!firebaseReady){
+  if(!isFirebaseReady()){
     showDbBanner("Database not configured. Using local-only mode.");
     setSyncStatus(false);
+  } else {
+    setSyncStatus(true);
   }
 
   // defaults
