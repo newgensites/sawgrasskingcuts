@@ -9,13 +9,16 @@ import {
   setDoc,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
+// -------------------------------------------------------------
+// Placeholder config — replace ALL values with your real keys.
+// -------------------------------------------------------------
 const firebaseConfig = {
-  apiKey: "AIzaSy....",
-  authDomain: "sawgrass-king-cuts.firebaseapp.com",
-  projectId: "sawgrass-king-cuts",
-  storageBucket: "sawgrass-king-cuts.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef",
+  apiKey: "REPLACE_WITH_YOUR_API_KEY",
+  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
+  messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+  appId: "REPLACE_WITH_YOUR_APP_ID",
 };
 
 function hasRealConfig(cfg) {
