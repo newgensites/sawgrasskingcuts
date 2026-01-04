@@ -5,28 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sawgrass Kings Cuts | Book Your Cut</title>
   <meta name="description" content="Sawgrass Kings Cuts in Sunrise, FL. Sharp fades, clean lineups, and quick booking with the shop at (954) 626-0836." />
-
-  <!-- Link preview (helps when sharing the URL via text/social) -->
-  <meta property="og:title" content="Sawgrass Kings Cuts | Book Your Cut" />
-  <meta property="og:description" content="Sharp fades, clean lineups, and quick booking in Sunrise, FL. Call/text (954) 626-0836." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://newgensites.github.io/sawgrasskingcuts/" />
-  <!-- Optional: add a real image later if you want nicer previews -->
-  <!-- <meta property="og:image" content="https://newgensites.github.io/sawgrasskingcuts/og-image.jpg" /> -->
-
-  <meta name="twitter:card" content="summary_large_image" />
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-  <noscript>
-    <div class="db-banner">
-      This site needs JavaScript enabled to book and manage appointments.
-    </div>
-  </noscript>
-
   <div id="dbBanner" class="db-banner hidden">Database not configured. Using local-only mode.</div>
-
   <!-- Top bar -->
   <div class="topbar">
     <div class="wrap topbar-inner">
@@ -101,7 +84,7 @@
               <div class="badge-sub">Easy, comfortable entry</div>
             </div>
             <div class="badge">
-              <div class="badge-title">Free Wi-Fi</div>
+              <div class="badge-title">Free Wi‑Fi</div>
               <div class="badge-sub">Stay connected during your cut</div>
             </div>
             <div class="badge">
@@ -233,7 +216,7 @@
             </div>
             <div class="kv">
               <div class="k">Amenities</div>
-              <div class="v">Wheelchair accessible entry • Free Wi-Fi</div>
+              <div class="v">Wheelchair accessible entry • Free Wi‑Fi</div>
             </div>
           </div>
         </div>
@@ -339,3 +322,181 @@
                 <button class="btn full" id="sendBookingText">Send Booking Text</button>
                 <div class="muted tiny center" id="smsHint"></div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Desk -->
+        <div id="admin" class="admin">
+          <div class="admin-head">
+            <div>
+              <p class="eyebrow">Admin Booking Desk</p>
+              <h2>Admin Booking Desk</h2>
+              <p class="section-sub">Confirm/decline requests and edit the Book a Date &amp; Time schedule so you never double-book.</p>
+            </div>
+            <div class="admin-actions">
+              <div class="sync-indicator" id="syncStatus">Offline/Local Mode</div>
+              <button class="ghost" id="lockAdmin" aria-pressed="false">Lock Admin Desk</button>
+            </div>
+          </div>
+
+          <div class="panel admin-access">
+            <h3>Admin access</h3>
+            <p class="muted">Enter the 4-digit PIN to unlock the booking tools.</p>
+            <div class="split access-row">
+              <input class="input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" />
+              <button class="btn" id="unlockAdmin">Unlock</button>
+            </div>
+            <div class="status" id="lockStatus">Admin desk locked.</div>
+            <div class="muted tiny" id="pinNote"></div>
+          </div>
+
+          <div class="admin-grid">
+            <div class="panel admin-only" data-admin>
+              <h3>Request queue</h3>
+              <p class="muted">Add incoming requests and confirm/decline them on the spot.</p>
+
+              <div class="form-grid">
+                <div>
+                  <label class="label">Name</label>
+                  <input class="input" id="qName" />
+                </div>
+                <div>
+                  <label class="label">Phone</label>
+                  <input class="input" id="qPhone" inputmode="tel" />
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Service</label>
+                  <select class="input" id="qService">
+                    <option value="Haircut">Haircut</option>
+                    <option value="Haircut + Beard">Haircut + Beard</option>
+                    <option value="Beard Only">Beard Only</option>
+                    <option value="Kids Cut">Kids Cut</option>
+                  </select>
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Book a Date & Time</label>
+                  <div class="split">
+                    <input class="input" type="date" id="qDate" />
+                    <select class="input" id="qTime"></select>
+                  </div>
+                </div>
+
+                <div class="fullrow">
+                  <button class="ghost full" id="markDayAvailable">Mark selected day as available</button>
+                  <div class="muted tiny center">Quickly reverse a day marked unavailable.</div>
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Notes</label>
+                  <textarea class="input" id="qNotes" rows="3"></textarea>
+                </div>
+
+                <div class="fullrow">
+                  <button class="btn full" id="addToQueue">Add to Queue</button>
+                  <div class="muted tiny center">Requests sync across devices when online; saved locally if offline.</div>
+                </div>
+              </div>
+
+              <hr class="hr" />
+
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Request</th>
+                      <th>Book a Date & Time</th>
+                      <th>Status</th>
+                      <th class="right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="queueTable"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel admin-only" data-admin>
+              <h3>Availability editor</h3>
+              <p class="muted">Block/open times instantly (affects the booking picker).</p>
+
+              <div class="form-grid">
+                <div class="fullrow">
+                  <label class="label">Date</label>
+                  <input class="input" type="date" id="aDate" />
+                </div>
+
+                <div class="fullrow">
+                  <label class="label">Time blocks</label>
+                  <div id="aTimes" class="times-grid"></div>
+                  <div class="muted tiny">Click to toggle a time as unavailable.</div>
+                </div>
+
+                <div class="fullrow">
+                  <label class="check">
+                    <input type="checkbox" id="aDayOff" />
+                    Mark entire day as unavailable
+                  </label>
+                </div>
+
+                <div class="fullrow split">
+                  <button class="ghost" id="clearOverrides">Clear overrides</button>
+                  <button class="btn" id="saveOverrides">Save to Calendar</button>
+                </div>
+
+                <div class="muted tiny" id="adminSaveNote"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel admin-only" data-admin id="photoUploader">
+          <h3>Recent work photos</h3>
+          <p class="muted">Update the gallery with new cuts once the desk is unlocked.</p>
+
+          <div class="upload-grid">
+            <button class="btn full" id="btnTakePhoto">Take photo</button>
+            <button class="ghost full" id="btnUploadFile">Upload file</button>
+            <button class="ghost full" id="btnCameraRoll">Upload from camera roll</button>
+          </div>
+
+          <p class="tiny muted">Gallery updates sync across devices when connected. Without a database, photos stay on this device only.</p>
+          <p class="tiny muted" id="photoUploadNote"></p>
+
+          <input type="file" accept="image/*" capture="environment" id="inputTakePhoto" hidden />
+          <input type="file" accept="image/*" id="inputUploadFile" hidden />
+          <input type="file" accept="image/*" id="inputCameraRoll" hidden />
+
+          <div class="photo-manager">
+            <div class="photo-manager-head">
+              <div class="label">Manage recent work gallery</div>
+              <p class="tiny muted">Open or delete any uploaded photo without leaving the admin desk.</p>
+            </div>
+            <div id="photoList" class="photo-list"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div>
+          <div class="footer-brand">Sawgrass Kings Cuts</div>
+          <div class="muted tiny">Sunrise • Fades • Beards</div>
+        </div>
+        <div class="footer-links">
+          <a href="#services">Services</a>
+          <a href="#gallery">Work</a>
+          <a href="#contact">Contact</a>
+          <a href="#admin">Admin</a>
+        </div>
+      </div>
+      <div class="wrap tiny muted footer-bottom">© <span id="year"></span> Sawgrass Kings Cuts • Back to top ↑</div>
+    </footer>
+  </main>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

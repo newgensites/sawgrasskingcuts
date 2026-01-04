@@ -1,17 +1,43 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getFirestore,
+  onSnapshot,
+  serverTimestamp,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Your web app's Firebase configuration
+// TODO: Replace with your real Firebase config (DO NOT commit secrets)
+// Option A: allow read/write for quick MVP (not secure)
+// Option B: recommended — use Firebase Auth (anonymous or email) and restrict writes in Firestore Security Rules.
 const firebaseConfig = {
-  apiKey: "AIzaSyBxZUrZaDgKurrfCFyQxER1-AsUsCJ2jIg",
-  authDomain: "sawgrass-king-cuts.firebaseapp.com",
-  projectId: "sawgrass-king-cuts",
-  storageBucket: "sawgrass-king-cuts.firebasestorage.app",
-  messagingSenderId: "441501540386",
-  appId: "1:441501540386:web:eeb71fd2ef98d365372a7b"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+function isConfigReady(cfg){
+  return cfg && Object.values(cfg).every(v=> v && !String(v).includes("YOUR_"));
+}
+
+let db = null;
+let firebaseReady = false;
+
+if(isConfigReady(firebaseConfig)){
+  try{
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    firebaseReady = true;
+  }catch(err){
+    console.warn("Firebase init failed; using local mode", err);
+    db = null;
+    firebaseReady = false;
+  }
+}
+
+export { db, firebaseReady, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc };
