@@ -209,13 +209,18 @@ textarea.input{resize:vertical}
 .cal-month{font-weight:900; letter-spacing:.2px}
 .cal-subhead{margin:0 0 10px; display:flex; justify-content:space-between; align-items:center}
 .mini-btn{padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.18); font-weight:800}
-.cal-grid{display:grid; grid-template-columns: repeat(7, 1fr); gap:6px}
+.cal-grid{
+  display:grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap:6px;
+}
 .cal-weekdays{color:var(--muted); font-size:12px; text-align:center; margin-bottom:6px}
 .cal-day{
   border:1px solid rgba(255,255,255,.08);
   border-radius:12px;
   background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.05), rgba(255,255,255,.01)), rgba(255,255,255,.02);
   min-height:92px;
+  min-width:0;
   padding:10px 10px 8px;
   display:flex;
   flex-direction:column;
