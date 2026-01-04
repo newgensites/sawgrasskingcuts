@@ -258,6 +258,12 @@
             </p>
 
             <div class="form-grid">
+              <div class="fullrow">
+                <label class="label">Barber</label>
+                <select class="input" id="bBarber"></select>
+                <div class="muted tiny" id="barberHint">Select a barber to see availability.</div>
+              </div>
+
               <div>
                 <label class="label">Name</label>
                 <input class="input" id="bName" placeholder="Your name" />
@@ -359,6 +365,11 @@
               <p class="muted">Add incoming requests and confirm/decline them on the spot.</p>
 
               <div class="form-grid">
+                <div class="fullrow">
+                  <label class="label">Barber</label>
+                  <select class="input" id="qBarber"></select>
+                </div>
+
                 <div>
                   <label class="label">Name</label>
                   <input class="input" id="qName" />
@@ -425,6 +436,11 @@
 
               <div class="form-grid">
                 <div class="fullrow">
+                  <label class="label">Barber</label>
+                  <select class="input" id="aBarber"></select>
+                </div>
+
+                <div class="fullrow">
                   <label class="label">Date</label>
                   <input class="input" type="date" id="aDate" />
                 </div>
@@ -451,6 +467,17 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="panel admin-only is-locked" data-admin id="barberManager">
+          <h3>Barbers</h3>
+          <p class="muted">Add, reorder, and toggle barbers. Inactive barbers disappear from the booking selector.</p>
+
+          <div class="barber-actions">
+            <button class="btn" id="addBarber">Add Barber</button>
+          </div>
+
+          <div id="barberList" class="barber-list"></div>
         </div>
 
         <div class="panel admin-only is-locked" data-admin id="photoUploader">
