@@ -285,14 +285,16 @@
                     <div class="cal-month" id="calMonth"></div>
                     <button class="ghost mini-btn" id="calNext" aria-label="Next month">›</button>
                   </div>
+                  <div class="cal-subhead tiny muted" id="calTimezone"></div>
                   <div class="cal-grid cal-weekdays">
                     <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                   </div>
                   <div class="cal-grid" id="calDays"></div>
                   <div class="cal-legend tiny muted">
-                    <span class="dot dot-open"></span>Open slots
-                    <span class="dot dot-full"></span>Fully booked
-                    <span class="dot dot-closed"></span>Closed / day off
+                    <span class="legend"><span class="cal-num-badge legend-open"></span>Open slots</span>
+                    <span class="legend"><span class="cal-num-badge legend-full"></span>Fully booked</span>
+                    <span class="legend"><span class="cal-num-badge legend-off"></span>Closed / day off</span>
+                    <span class="legend"><span class="cal-num-badge legend-out"></span>Out of range</span>
                   </div>
                 </div>
                 <input type="hidden" id="bDate" />

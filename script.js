@@ -824,11 +824,16 @@ function renderCalendar(){
   const monthLabel = $("#calMonth");
   const prevBtn = $("#calPrev");
   const nextBtn = $("#calNext");
+  const tzLabel = $("#calTimezone");
   const minMonth = monthStartISO(MIN_DATE);
   const maxMonth = monthStartISO(MAX_DATE);
 
   const base = new Date(calendarMonthISO + "T00:00:00");
   monthLabel.textContent = base.toLocaleString(undefined, { month: "long", year: "numeric" });
+  if(tzLabel){
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "local time";
+    tzLabel.textContent = `Times shown in ${tz}.`;
+  }
   prevBtn.disabled = calendarMonthISO <= minMonth;
   nextBtn.disabled = calendarMonthISO >= maxMonth;
 
@@ -855,32 +860,41 @@ function renderCalendar(){
     const takenCount = hasHours ? takenSlots(iso).length : 0;
 
     let meta = hasHours ? `${openCount} open` : (dayOff ? "Day off" : "Closed");
-    let dotClass = "dot-closed";
+    let statusClass = "status-off";
+    let clickable = inRange && hasHours;
 
     if(!inRange){
       dayEl.classList.add("disabled");
       meta = "Out of range";
+      statusClass = "status-out";
     } else if(!hasHours){
       dayEl.classList.add("closed","disabled");
+      statusClass = "status-off";
     } else if(openCount === 0){
       dayEl.classList.add("full");
-      dotClass = "dot-full";
+      statusClass = "status-full";
       meta = takenCount ? `Full (${takenCount} taken)` : "Full";
+    } else if(dayOff){
+      statusClass = "status-off";
     } else {
-      dotClass = "dot-open";
+      statusClass = "status-open";
     }
 
     if(selected === iso) dayEl.classList.add("selected");
+    dayEl.classList.add(statusClass);
+
+    const weekday = new Date(`${iso}T00:00:00`).toLocaleString(undefined, { weekday: "short" });
+    dayEl.setAttribute("aria-label", `${weekday} ${day}: ${meta}`);
 
     dayEl.innerHTML = `
-      <div class="cal-row">
-        <div class="cal-num">${day}</div>
-        <span class="dot ${dotClass}"></span>
+      <div class="cal-date">
+        <div class="cal-num-badge">${day}</div>
+        <div class="cal-weekday">${weekday}</div>
       </div>
       <div class="cal-meta">${meta}</div>
     `;
 
-    if(inRange && hasHours){
+    if(clickable){
       dayEl.addEventListener("click", ()=> selectDate(iso));
     }
 
