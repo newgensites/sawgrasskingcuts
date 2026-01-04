@@ -9,7 +9,8 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc
+  updateDoc,
+  firebaseHealthCheck
 } from "./firebase.js";
 
 /* =========================================================
@@ -1393,11 +1394,21 @@ async function init(){
   renderPhotoManager();
   clampDateInputs();
 
-  if(!isFirebaseReady()){
+  let firebaseOk = false;
+  try{
+    firebaseOk = await firebaseHealthCheck();
+  }catch(e){
+    firebaseOk = false;
+  }
+
+  if(firebaseOk){
+    useLocalMode = false;
+    showDbBanner("");
+    setSyncStatus(true);
+  } else {
+    useLocalMode = true;
     showDbBanner("Database not configured. Using local-only mode.");
     setSyncStatus(false);
-  } else {
-    setSyncStatus(true);
   }
 
   // defaults
@@ -1452,7 +1463,9 @@ async function init(){
   applyAdminLock();
   renderQueue();
 
-  startRealtimeSync();
+  if(firebaseOk){
+    startRealtimeSync();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);
