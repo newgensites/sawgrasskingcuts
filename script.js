@@ -1,23 +1,7 @@
-import {
-  db,
-  isFirebaseReady,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  firebaseHealthCheck
-} from "./firebase.js";
-
 /* =========================================================
    VASEAN Barbershop Booking + Admin Desk
    - Static (GitHub Pages friendly)
-   - Syncs with Firestore when configured
-   - Falls back to localStorage when offline/not configured
+   - LocalStorage-powered (no external database)
    - Booking sends a pre-filled SMS to SHOP_PHONE
    ========================================================= */
 
@@ -149,10 +133,6 @@ function clampDateInputs(){
 }
 
 /* ----------------- data ops ----------------- */
-let useLocalMode = !isFirebaseReady();
-let realtimeUnsubs = [];
-let listenersReady = false;
-
 function uuid(){
   if(typeof crypto !== "undefined" && crypto.randomUUID){
     return crypto.randomUUID();
@@ -335,27 +315,6 @@ function mapToBlockedSlots(map){
   return slots;
 }
 
-function usingFirestore(){
-  return isFirebaseReady() && db && !useLocalMode;
-}
-
-/* ----------------- firestore sync ----------------- */
-function snapshotError(err){
-  console.warn("Realtime sync disabled, switching to local mode", err);
-  useLocalMode = true;
-  setSyncStatus(false);
-  showDbBanner("Database not configured. Using local-only mode.");
-}
-
-function normalizeDoc(docSnap){
-  const data = docSnap.data() || {};
-  return {
-    id: data.id || docSnap.id,
-    ...data,
-    createdAt: normalizeTimestamp(data.createdAt)
-  };
-}
-
 async function saveBookingRecord(booking){
   const payload = { ...booking };
   if(!payload.id) payload.id = uuid();
@@ -364,17 +323,6 @@ async function saveBookingRecord(booking){
   const list = getBookings().filter(b=> b.id !== payload.id);
   list.push(payload);
   setBookings(list);
-
-  if(usingFirestore()){
-    try{
-      const toSave = { ...payload };
-      if(!booking.createdAt) toSave.createdAt = serverTimestamp();
-      await setDoc(doc(db, "bookings", payload.id), toSave, { merge:true });
-    }catch(err){
-      console.warn("Failed to save booking to Firestore", err);
-      snapshotError(err);
-    }
-  }
 
   renderCalendar();
   refreshBookingPickers(payload.date);
@@ -388,32 +336,11 @@ async function updateBookingStatus(id, status){
     setBookings([...list]);
   }
 
-  if(usingFirestore()){
-    try{
-      await setDoc(doc(db, "bookings", id), { status }, { merge:true });
-    }catch(err){
-      console.warn("Failed to update booking status", err);
-      snapshotError(err);
-    }
-  }
-
   renderCalendar();
 }
 
 async function saveOverridesRemote(map){
   setOverrides(map);
-
-  if(usingFirestore()){
-    try{
-      await setDoc(doc(db, "overrides", "calendar"), {
-        blockedSlots: mapToBlockedSlots(map),
-        updatedAt: serverTimestamp(),
-      });
-    }catch(err){
-      console.warn("Failed to save overrides", err);
-      snapshotError(err);
-    }
-  }
 }
 
 async function saveQueueItem(item){
@@ -424,17 +351,6 @@ async function saveQueueItem(item){
   const next = getQueue().filter(q=> q.id !== payload.id);
   next.unshift(payload);
   setQueue(next);
-
-  if(usingFirestore()){
-    try{
-      const toSave = { ...payload };
-      if(!item.createdAt) toSave.createdAt = serverTimestamp();
-      await setDoc(doc(db, "queue", payload.id), toSave, { merge:true });
-    }catch(err){
-      console.warn("Failed to save queue item", err);
-      snapshotError(err);
-    }
-  }
 
   renderQueue();
 }
@@ -447,30 +363,12 @@ async function updateQueueItem(id, changes){
     setQueue([...list]);
   }
 
-  if(usingFirestore()){
-    try{
-      await setDoc(doc(db, "queue", id), changes, { merge:true });
-    }catch(err){
-      console.warn("Failed to update queue item", err);
-      snapshotError(err);
-    }
-  }
-
   renderQueue();
 }
 
 async function removeQueueItem(id){
   const next = getQueue().filter(q=> q.id !== id);
   setQueue(next);
-
-  if(usingFirestore()){
-    try{
-      await deleteDoc(doc(db, "queue", id));
-    }catch(err){
-      console.warn("Failed to delete queue item", err);
-      snapshotError(err);
-    }
-  }
 
   renderQueue();
 }
@@ -483,17 +381,6 @@ async function saveGalleryItem(item){
   const next = [payload, ...getGalleryPhotos().filter(p=> p.id !== payload.id)].slice(0, 9);
   setGalleryPhotos(next);
 
-  if(usingFirestore()){
-    try{
-      const toSave = { ...payload };
-      if(!item.createdAt) toSave.createdAt = serverTimestamp();
-      await setDoc(doc(db, "gallery", payload.id), toSave, { merge:true });
-    }catch(err){
-      console.warn("Failed to save gallery item", err);
-      snapshotError(err);
-    }
-  }
-
   renderGallery();
   renderPhotoManager();
 }
@@ -502,89 +389,8 @@ async function removeGalleryItem(id){
   const next = getGalleryPhotos().filter(p=> p.id !== id);
   setGalleryPhotos(next);
 
-  if(usingFirestore()){
-    try{
-      await deleteDoc(doc(db, "gallery", id));
-    }catch(err){
-      console.warn("Failed to delete gallery item", err);
-      snapshotError(err);
-    }
-  }
-
   renderGallery();
   renderPhotoManager();
-}
-
-function startRealtimeSync(){
-  const ready = isFirebaseReady();
-  if(!ready || !db){
-    useLocalMode = true;
-    setSyncStatus(false);
-    showDbBanner("Database not configured. Using local-only mode.");
-    return;
-  }
-
-  realtimeUnsubs.forEach(fn=> fn && fn());
-  realtimeUnsubs = [];
-
-  useLocalMode = false;
-  setSyncStatus(true);
-
-  try{
-    const bookingsRef = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
-    realtimeUnsubs.push(onSnapshot(bookingsRef, (snap)=>{
-      const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
-      useLocalMode = false;
-      showDbBanner("");
-      setSyncStatus(true);
-      setBookings(items);
-      renderCalendar();
-      const bDate = $("#bDate").value;
-      if(bDate) hydrateBookingTimes(bDate);
-      const qDate = $("#qDate").value;
-      if(qDate) hydrateQueueTimes(qDate);
-    }, snapshotError));
-
-    const ovRef = doc(db, "overrides", "calendar");
-    realtimeUnsubs.push(onSnapshot(ovRef, (snap)=>{
-      const data = snap.exists() ? snap.data() : {};
-      const map = blockedSlotsToMap(data.blockedSlots || []);
-      useLocalMode = false;
-      showDbBanner("");
-      setSyncStatus(true);
-      setOverrides(map);
-      renderCalendar();
-      const aDate = $("#aDate").value;
-      if(aDate) hydrateAdminTimes(aDate);
-      const qDate = $("#qDate").value;
-      if(qDate) hydrateQueueTimes(qDate);
-    }, snapshotError));
-
-    const queueRef = query(collection(db, "queue"), orderBy("createdAt", "desc"));
-    realtimeUnsubs.push(onSnapshot(queueRef, (snap)=>{
-      const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
-      useLocalMode = false;
-      showDbBanner("");
-      setSyncStatus(true);
-      setQueue(items);
-      renderQueue();
-    }, snapshotError));
-
-    const galleryRef = query(collection(db, "gallery"), orderBy("createdAt", "desc"));
-    realtimeUnsubs.push(onSnapshot(galleryRef, (snap)=>{
-      const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
-      useLocalMode = false;
-      showDbBanner("");
-      setSyncStatus(true);
-      setGalleryPhotos(items);
-      renderGallery();
-      renderPhotoManager();
-    }, snapshotError));
-
-    listenersReady = true;
-  }catch(err){
-    snapshotError(err);
-  }
 }
 
 /* ----------------- slots generation ----------------- */
@@ -1394,22 +1200,8 @@ async function init(){
   renderPhotoManager();
   clampDateInputs();
 
-  let firebaseOk = false;
-  try{
-    firebaseOk = await firebaseHealthCheck();
-  }catch(e){
-    firebaseOk = false;
-  }
-
-  if(firebaseOk){
-    useLocalMode = false;
-    showDbBanner("");
-    setSyncStatus(true);
-  } else {
-    useLocalMode = true;
-    showDbBanner("Database not configured. Using local-only mode.");
-    setSyncStatus(false);
-  }
+  showDbBanner("");
+  setSyncStatus(true);
 
   // defaults
   const min = MIN_DATE;
@@ -1462,10 +1254,6 @@ async function init(){
   // apply lock state
   applyAdminLock();
   renderQueue();
-
-  if(firebaseOk){
-    startRealtimeSync();
-  }
 }
 
 document.addEventListener("DOMContentLoaded", init);
