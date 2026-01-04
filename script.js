@@ -27,11 +27,12 @@ const CONFIG = {
 };
 
 const LS = {
-  barbers: "vb_barbers_v1",                 // [ {id, name, label, active, createdAt} ]
+  barbers: "vb_barbers_v1",                 // [ {id, name, label, pin, active, createdAt} ]
   bookingsByBarber: "vb_bookings_by_barber_v1", // { barberId: [ bookingObj ] }
   overridesByBarber: "vb_overrides_by_barber_v1", // { barberId: { date: { dayOff, blocked } } }
   queueByBarber: "vb_queue_by_barber_v1",     // { barberId: [ queueItem ] }
   adminUnlocked: "vb_admin_unlocked_v1",
+  adminSession: "vb_admin_session_v1",        // { barberId }
   gallery: "vb_gallery_v2",                   // [ {id, caption, imageData} ]
   legacyBookings: "vb_bookings_v2",
   legacyOverrides: "vb_overrides_v2",
@@ -41,7 +42,14 @@ const LS = {
 // older gallery keys that may contain photos from previous visits/devices
 const LEGACY_GALLERY_KEYS = ["vb_gallery", "vb_photos", "vb_gallery_v0"];
 
-const SYNC_KEYS = new Set([LS.bookingsByBarber, LS.overridesByBarber, LS.queueByBarber, LS.gallery, LS.barbers]);
+const SYNC_KEYS = new Set([
+  LS.bookingsByBarber,
+  LS.overridesByBarber,
+  LS.queueByBarber,
+  LS.gallery,
+  LS.barbers,
+  LS.adminSession,
+]);
 
 /* ----------------- helpers ----------------- */
 const $ = (sel) => document.querySelector(sel);
@@ -205,6 +213,7 @@ function defaultBarbers(){
     id: `barber-${idx+1}`,
     name: `Barber ${idx+1}`,
     label: "",
+    pin: String(1111 + idx),
     active: true,
     createdAt: now + idx,
   }));
@@ -246,6 +255,7 @@ function migrateLegacyStructures(){
 const state = {
   ...migrateLegacyStructures(),
   gallery: migrateLegacyGallery(loadJSON(LS.gallery, [])),
+  adminSession: loadJSON(LS.adminSession, { barberId: null }),
   selected: {
     bookingBarberId: null,
     queueBarberId: null,
@@ -272,6 +282,15 @@ function getBarbers(){
 function setBarbers(list, opts={ skipLocal:false }){
   state.barbers = Array.isArray(list) ? list : [];
   if(!opts.skipLocal) saveJSON(LS.barbers, state.barbers);
+}
+
+function getAdminSession(){
+  return state.adminSession || { barberId: null };
+}
+
+function setAdminSession(barberId){
+  state.adminSession = { barberId: barberId || null };
+  saveJSON(LS.adminSession, state.adminSession);
 }
 
 function getSelectedBarberId(kind="booking"){
@@ -590,7 +609,7 @@ function renderBarberOptions(selectEl, barbers, includeInactive=false){
     return;
   }
   selectEl.disabled = false;
-  if(selectEl.id === "bBarber"){
+  if(selectEl.id === "bBarber" || selectEl.id === "pinBarber"){
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "Select a barber";
@@ -624,14 +643,17 @@ function syncBarberSelections(){
   const bookingSel = $("#bBarber");
   const queueSel = $("#qBarber");
   const adminSel = $("#aBarber");
+  const pinSel = $("#pinBarber");
 
   renderBarberOptions(bookingSel, barbers);
   renderBarberOptions(queueSel, barbers, true);
   renderBarberOptions(adminSel, barbers, true);
+  renderBarberOptions(pinSel, barbers, true);
 
   if(bookingSel){ bookingSel.value = getSelectedBarberId("booking") || ""; }
   if(queueSel){ queueSel.value = getSelectedBarberId("queue") || ""; }
   if(adminSel){ adminSel.value = getSelectedBarberId("admin") || ""; }
+  if(pinSel){ pinSel.value = getUnlockedBarberId() || getSelectedBarberId("admin") || ""; }
 }
 
 /* ----------------- UI: gallery ----------------- */
@@ -731,7 +753,7 @@ function addBarberFromAdmin(){
   const name = prompt("New barber name", `Barber ${barbers.length + 1}`);
   if(!name) return;
   const id = `barber-${uuid()}`;
-  barbers.push({ id, name: name.trim(), label: "", active: true, createdAt: Date.now() });
+  barbers.push({ id, name: name.trim(), label: "", pin: String(1000 + barbers.length), active: true, createdAt: Date.now() });
   setBarbers(barbers);
   setSelectedBarberId("booking", id);
   setSelectedBarberId("queue", id);
@@ -1060,45 +1082,93 @@ Please confirm if this time is available.`;
 }
 
 /* ----------------- Admin: lock/unlock ----------------- */
-function isAdminUnlocked(){
-  return localStorage.getItem(LS.adminUnlocked) === "true";
+function getUnlockedBarberId(){
+  const id = getAdminSession().barberId || null;
+  if(id && getBarbers().some(b=> b.id === id)) return id;
+  return null;
 }
-function setAdminUnlocked(val){
-  localStorage.setItem(LS.adminUnlocked, val ? "true" : "false");
+
+function setAdminUnlocked(val, barberId=null){
+  if(val && barberId){
+    setAdminSession(barberId);
+    localStorage.setItem(LS.adminUnlocked, "true");
+  } else {
+    setAdminSession(null);
+    localStorage.removeItem(LS.adminUnlocked);
+  }
   applyAdminLock();
 }
 
+function applyBarberLockToSelectors(){
+  const sessionBarberId = getUnlockedBarberId();
+  const queueSel = $("#qBarber");
+  const adminSel = $("#aBarber");
+
+  if(sessionBarberId){
+    setSelectedBarberId("queue", sessionBarberId);
+    setSelectedBarberId("admin", sessionBarberId);
+  }
+
+  [queueSel, adminSel].forEach(sel=>{
+    if(!sel) return;
+    if(sessionBarberId){
+      sel.value = sessionBarberId;
+      sel.disabled = true;
+    } else {
+      sel.disabled = false;
+    }
+  });
+}
+
 function applyAdminLock(){
-  const locked = !isAdminUnlocked();
+  const locked = !getUnlockedBarberId();
   document.querySelectorAll("[data-admin]").forEach(el=>{
     el.classList.toggle("is-locked", locked);
   });
   const pinNote = $("#pinNote");
   const lockBtn = $("#lockAdmin");
   const lockStatus = $("#lockStatus");
+  const sessionBarber = getBarbers().find(b=> b.id === getUnlockedBarberId());
 
   lockBtn.disabled = locked;
   lockBtn.setAttribute("aria-pressed", (!locked).toString());
 
   lockStatus.textContent = locked
     ? "Admin desk locked."
-    : "Admin tools unlocked on this device.";
+    : `Unlocked for ${sessionBarber?.name || "Barber"}. Managing only their calendar + queue.`;
   lockStatus.classList.toggle("ok", !locked);
 
   pinNote.textContent = locked
-    ? "Locked. Enter PIN to unlock."
-    : "Unlocked on this device (client-side only).";
+    ? "Select a barber and enter that barber's passcode."
+    : "Barber-only access is active on this device.";
+
+  applyBarberLockToSelectors();
 }
 
 function unlockAdmin(){
+  const selectedBarberId = $("#pinBarber").value;
   const pin = $("#pinInput").value.trim();
-  const expectedPin = String(CONFIG.ADMIN_PIN || "").trim();
+  const target = getBarbers().find(b=> b.id === selectedBarberId);
+
+  if(!target){
+    $("#pinNote").textContent = "Choose a barber first.";
+    return;
+  }
+
+  const expectedPin = String(target.pin || CONFIG.ADMIN_PIN || "").trim();
+  if(!expectedPin){
+    $("#pinNote").textContent = "Set a passcode for this barber in the Barbers panel.";
+    return;
+  }
 
   if(pin === expectedPin){
-    setAdminUnlocked(true);
+    setAdminUnlocked(true, selectedBarberId);
     $("#pinInput").value = "";
+    $("#pinNote").textContent = `${target.name} is now managing their queue + availability.`;
+    syncBarberSelections();
+    refreshAllAfterBarberChange();
   } else {
-    $("#pinNote").textContent = "Wrong PIN.";
+    $("#pinNote").textContent = "Wrong passcode for that barber.";
   }
 }
 
@@ -1448,12 +1518,14 @@ function renderBarberManager(){
       <div class="barber-main">
         <div class="barber-name">${escapeHtml(b.name)}</div>
         <div class="muted tiny">${escapeHtml(statusText)}${b.label ? ` • ${escapeHtml(b.label)}` : ""}</div>
+        <div class="muted tiny">Passcode: ${escapeHtml(b.pin || "Not set")}</div>
       </div>
       <div class="barber-controls">
         <button class="ghost tiny-btn" data-act="up" data-idx="${idx}">↑</button>
         <button class="ghost tiny-btn" data-act="down" data-idx="${idx}">↓</button>
         <button class="ghost tiny-btn" data-act="toggle" data-idx="${idx}">${b.active === false ? "Activate" : "Deactivate"}</button>
         <button class="ghost tiny-btn" data-act="rename" data-idx="${idx}">Rename</button>
+        <button class="ghost tiny-btn" data-act="pin" data-idx="${idx}">Set PIN</button>
         <button class="ghost danger tiny-btn" data-act="delete" data-idx="${idx}">Delete</button>
       </div>
     `;
@@ -1485,6 +1557,21 @@ function renderBarberManager(){
         syncBarberSelections();
         renderBarberManager();
         refreshAllAfterBarberChange();
+      }
+
+      if(act === "pin"){
+        const nextPin = prompt("Set a 4-digit passcode for this barber", target.pin || "");
+        if(nextPin){
+          const cleaned = nextPin.replace(/\D/g, "").slice(0,4);
+          if(cleaned.length < 4){
+            alert("Please enter a 4-digit code.");
+            return;
+          }
+          barbersNow[idx] = { ...target, pin: cleaned };
+          setBarbers(barbersNow);
+          renderBarberManager();
+          syncBarberSelections();
+        }
       }
 
       if(act === "up" && idx > 0){
@@ -1554,6 +1641,11 @@ function onStorageSync(e){
   if(e.key === LS.queueByBarber){
     state.queueByBarber = loadJSON(LS.queueByBarber, {});
     renderQueue();
+  }
+
+  if(e.key === LS.adminSession){
+    state.adminSession = loadJSON(LS.adminSession, { barberId: null });
+    applyAdminLock();
   }
 
   if(e.key === LS.gallery){
