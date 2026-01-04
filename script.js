@@ -1057,7 +1057,9 @@ function applyAdminLock(){
 
 function unlockAdmin(){
   const pin = $("#pinInput").value.trim();
-  if(pin === CONFIG.ADMIN_PIN){
+  const expectedPin = String(CONFIG.ADMIN_PIN || "").trim();
+
+  if(pin === expectedPin){
     setAdminUnlocked(true);
     $("#pinInput").value = "";
   } else {
