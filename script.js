@@ -212,18 +212,32 @@ function migrateLegacyGallery(raw){
 
 function defaultBarbers(){
   const now = Date.now();
+  const pins = ["1111", "2222", "3333", "4444"];
   return Array.from({ length: 4 }).map((_, idx)=>({
     id: `barber-${idx+1}`,
     name: `Barber ${idx+1}`,
     label: "",
-    pin: String(1111 + idx),
+    pin: pins[idx] || String(1000 + idx),
     active: true,
     createdAt: now + idx,
   }));
 }
 
+function enforceDefaultPins(barbers){
+  const pinMap = {
+    "barber-1": "1111",
+    "barber-2": "2222",
+    "barber-3": "3333",
+    "barber-4": "4444",
+  };
+  return (barbers || []).map(b=> pinMap[b.id]
+    ? { ...b, pin: pinMap[b.id] }
+    : b
+  );
+}
+
 function migrateLegacyStructures(){
-  let barbers = loadJSON(LS.barbers, []);
+  let barbers = enforceDefaultPins(loadJSON(LS.barbers, []));
   if(!Array.isArray(barbers) || barbers.length === 0){
     barbers = defaultBarbers();
     saveJSON(LS.barbers, barbers);
@@ -1114,8 +1128,10 @@ function applyBarberLockToSelectors(){
   const sessionBarberId = getUnlockedBarberId();
   const queueSel = $("#qBarber");
   const adminSel = $("#aBarber");
+  const bookingSel = $("#bBarber");
 
   if(sessionBarberId){
+    setSelectedBarberId("booking", sessionBarberId);
     setSelectedBarberId("queue", sessionBarberId);
     setSelectedBarberId("admin", sessionBarberId);
   }
@@ -1129,6 +1145,10 @@ function applyBarberLockToSelectors(){
       sel.disabled = false;
     }
   });
+
+  if(bookingSel && sessionBarberId){
+    bookingSel.value = sessionBarberId;
+  }
 }
 
 function applyAdminLock(){
@@ -1223,6 +1243,7 @@ function unlockBarberDesk(){
 
   if(passcode === String(target.pin || "").trim()){
     setBarberUnlocked(true, barberId);
+    setSelectedBarberId("booking", barberId);
     setSelectedBarberId("queue", barberId);
     setSelectedBarberId("admin", barberId);
     syncBarberSelections();
