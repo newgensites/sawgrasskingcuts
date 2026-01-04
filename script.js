@@ -11,7 +11,6 @@ const CONFIG = {
   SHOP_PHONE_DISPLAY: "(954) 626-0836", // shown on page
   SHOP_EMAIL: "info@sawgrasskingscuts.com",
   ADMIN_PIN: "1234", // <- change (client-side only)
-  BARBER_PASSCODES: ["9876", "4321"], // <- change or add more (client-side only)
   SLOT_MINUTES: 30,
   MAX_DAYS_AHEAD: 30,
 
@@ -34,7 +33,7 @@ const LS = {
   queueByBarber: "vb_queue_by_barber_v1",     // { barberId: [ queueItem ] }
   adminUnlocked: "vb_admin_unlocked_v1",
   barberUnlocked: "vb_barber_unlocked_v1",
-  barberPasscodes: "vb_barber_passcodes_v1",
+  barberSession: "vb_barber_session_v1",
   gallery: "vb_gallery_v2",                   // [ {id, caption, imageData} ]
   legacyBookings: "vb_bookings_v2",
   legacyOverrides: "vb_overrides_v2",
@@ -50,7 +49,9 @@ const SYNC_KEYS = new Set([
   LS.queueByBarber,
   LS.gallery,
   LS.barbers,
-  LS.barberPasscodes,
+  LS.adminUnlocked,
+  LS.barberUnlocked,
+  LS.barberSession,
 ]);
 
 /* ----------------- helpers ----------------- */
@@ -257,7 +258,7 @@ function migrateLegacyStructures(){
 const state = {
   ...migrateLegacyStructures(),
   gallery: migrateLegacyGallery(loadJSON(LS.gallery, [])),
-  adminSession: loadJSON(LS.adminSession, { barberId: null }),
+  barberSession: loadJSON(LS.barberSession, { barberId: null }),
   selected: {
     bookingBarberId: null,
     queueBarberId: null,
@@ -284,15 +285,6 @@ function getBarbers(){
 function setBarbers(list, opts={ skipLocal:false }){
   state.barbers = Array.isArray(list) ? list : [];
   if(!opts.skipLocal) saveJSON(LS.barbers, state.barbers);
-}
-
-function getAdminSession(){
-  return state.adminSession || { barberId: null };
-}
-
-function setAdminSession(barberId){
-  state.adminSession = { barberId: barberId || null };
-  saveJSON(LS.adminSession, state.adminSession);
 }
 
 function getSelectedBarberId(kind="booking"){
@@ -642,20 +634,29 @@ function syncBarberSelections(){
     setSelectedBarberId("admin", barbers[0]?.id || null);
   }
 
+  const unlocked = getUnlockedBarberId();
+  if(unlocked){
+    setSelectedBarberId("queue", unlocked);
+    setSelectedBarberId("admin", unlocked);
+  }
+
   const bookingSel = $("#bBarber");
   const queueSel = $("#qBarber");
   const adminSel = $("#aBarber");
-  const pinSel = $("#pinBarber");
+  const barberDeskSel = $("#barberDeskBarber");
 
   renderBarberOptions(bookingSel, barbers);
   renderBarberOptions(queueSel, barbers, true);
   renderBarberOptions(adminSel, barbers, true);
-  renderBarberOptions(pinSel, barbers, true);
+  renderBarberOptions(barberDeskSel, barbers, true);
 
   if(bookingSel){ bookingSel.value = getSelectedBarberId("booking") || ""; }
   if(queueSel){ queueSel.value = getSelectedBarberId("queue") || ""; }
   if(adminSel){ adminSel.value = getSelectedBarberId("admin") || ""; }
-  if(pinSel){ pinSel.value = getUnlockedBarberId() || getSelectedBarberId("admin") || ""; }
+  if(barberDeskSel){
+    const unlocked = getUnlockedBarberId();
+    barberDeskSel.value = unlocked || getSelectedBarberId("admin") || barbers[0]?.id || "";
+  }
 }
 
 /* ----------------- UI: gallery ----------------- */
@@ -1085,17 +1086,25 @@ Please confirm if this time is available.`;
 
 /* ----------------- Admin: lock/unlock ----------------- */
 function getUnlockedBarberId(){
-  const id = getAdminSession().barberId || null;
+  const session = state.barberSession || loadJSON(LS.barberSession, { barberId:null });
+  const id = session?.barberId || null;
   if(id && getBarbers().some(b=> b.id === id)) return id;
   return null;
 }
 
-function setAdminUnlocked(val, barberId=null){
-  if(val && barberId){
-    setAdminSession(barberId);
+function setBarberSession(barberId){
+  state.barberSession = { barberId: barberId || null };
+  saveJSON(LS.barberSession, state.barberSession);
+}
+
+function isAdminUnlocked(){
+  return localStorage.getItem(LS.adminUnlocked) === "true";
+}
+
+function setAdminUnlocked(val){
+  if(val){
     localStorage.setItem(LS.adminUnlocked, "true");
   } else {
-    setAdminSession(null);
     localStorage.removeItem(LS.adminUnlocked);
   }
   applyAdminLock();
@@ -1123,82 +1132,51 @@ function applyBarberLockToSelectors(){
 }
 
 function applyAdminLock(){
-  const locked = !getUnlockedBarberId();
+  const locked = !isAdminUnlocked();
   document.querySelectorAll("[data-admin]").forEach(el=>{
     el.classList.toggle("is-locked", locked);
   });
   const pinNote = $("#pinNote");
   const lockBtn = $("#lockAdmin");
   const lockStatus = $("#lockStatus");
-  const sessionBarber = getBarbers().find(b=> b.id === getUnlockedBarberId());
 
   lockBtn.disabled = locked;
   lockBtn.setAttribute("aria-pressed", (!locked).toString());
 
   lockStatus.textContent = locked
     ? "Admin desk locked."
-    : `Unlocked for ${sessionBarber?.name || "Barber"}. Managing only their calendar + queue.`;
+    : "Admin desk unlocked on this device.";
   lockStatus.classList.toggle("ok", !locked);
 
   pinNote.textContent = locked
-    ? "Select a barber and enter that barber's passcode."
-    : "Barber-only access is active on this device.";
-
-  applyBarberLockToSelectors();
+    ? "Enter the admin passcode to manage barbers and photos."
+    : "Admin tools are unlocked on this device.";
 }
 
 function unlockAdmin(){
-  const selectedBarberId = $("#pinBarber").value;
-  const pin = $("#pinInput").value.trim();
-  const target = getBarbers().find(b=> b.id === selectedBarberId);
-
-  if(!target){
-    $("#pinNote").textContent = "Choose a barber first.";
-    return;
-  }
-
-  const expectedPin = String(target.pin || CONFIG.ADMIN_PIN || "").trim();
-  if(!expectedPin){
-    $("#pinNote").textContent = "Set a passcode for this barber in the Barbers panel.";
-    return;
-  }
-
-  if(pin === expectedPin){
-    setAdminUnlocked(true, selectedBarberId);
-    $("#pinInput").value = "";
-    $("#pinNote").textContent = `${target.name} is now managing their queue + availability.`;
-    syncBarberSelections();
-    refreshAllAfterBarberChange();
+  const pin = $("#adminPinInput").value.trim();
+  if(pin === String(CONFIG.ADMIN_PIN).trim()){
+    setAdminUnlocked(true);
+    $("#adminPinInput").value = "";
+    $("#pinNote").textContent = "Admin tools unlocked.";
   } else {
-    $("#pinNote").textContent = "Wrong passcode for that barber.";
+    $("#pinNote").textContent = "Wrong admin passcode.";
   }
 }
 
 /* ----------------- Barber Desk (separate access) ----------------- */
-function getBarberPasscodes(){
-  const fromStorage = loadJSON(LS.barberPasscodes, null);
-  const defaults = Array.isArray(CONFIG.BARBER_PASSCODES) ? CONFIG.BARBER_PASSCODES.filter(Boolean) : [];
-
-  if(Array.isArray(fromStorage)){
-    return fromStorage.filter(Boolean);
-  }
-
-  saveJSON(LS.barberPasscodes, defaults);
-  return defaults;
-}
-
-function saveBarberPasscodes(list){
-  const unique = Array.from(new Set((list || []).map(c => String(c).trim()).filter(Boolean)));
-  saveJSON(LS.barberPasscodes, unique);
-  return unique;
-}
-
 function isBarberUnlocked(){
-  return localStorage.getItem(LS.barberUnlocked) === "true";
+  return localStorage.getItem(LS.barberUnlocked) === "true" && Boolean(getUnlockedBarberId());
 }
 
-function setBarberUnlocked(val){
-  localStorage.setItem(LS.barberUnlocked, val ? "true" : "false");
+function setBarberUnlocked(val, barberId=null){
+  if(val && barberId){
+    localStorage.setItem(LS.barberUnlocked, "true");
+    setBarberSession(barberId);
+  } else {
+    localStorage.removeItem(LS.barberUnlocked);
+    setBarberSession(null);
+  }
   applyBarberLock();
 }
 
@@ -1211,6 +1189,7 @@ function applyBarberLock(){
   const lockStatus = $("#barberLockStatus");
   const lockNote = $("#barberLockNote");
   const lockBtn = $("#lockBarberDesk");
+  const sessionBarber = getBarbers().find(b=> b.id === getUnlockedBarberId());
 
   if(lockBtn){
     lockBtn.disabled = locked;
@@ -1218,74 +1197,41 @@ function applyBarberLock(){
   }
 
   if(lockStatus){
-    lockStatus.textContent = locked ? "Barber desk locked." : "Barber desk unlocked on this device.";
+    lockStatus.textContent = locked ? "Barber desk locked." : `Unlocked for ${sessionBarber?.name || "Barber"}.`;
     lockStatus.classList.toggle("ok", !locked);
   }
 
   if(lockNote){
     lockNote.textContent = locked
-      ? "Locked. Enter any valid passcode to unlock."
-      : "Unlocked on this device (client-side only).";
+      ? "Select your name and enter your passcode to manage your queue + calendar."
+      : "This desk is unlocked for the selected barber on this device.";
   }
+
+  applyBarberLockToSelectors();
 }
 
 function unlockBarberDesk(){
+  const barberId = $("#barberDeskBarber").value;
   const passcode = $("#barberPasscodeInput").value.trim();
-  const allowed = getBarberPasscodes();
   const note = $("#barberLockNote");
+  const target = getBarbers().find(b=> b.id === barberId);
 
-  if(allowed.includes(passcode)){
-    setBarberUnlocked(true);
+  if(!target){
+    if(note) note.textContent = "Choose your barber profile first.";
+    return;
+  }
+
+  if(passcode === String(target.pin || "").trim()){
+    setBarberUnlocked(true, barberId);
+    setSelectedBarberId("queue", barberId);
+    setSelectedBarberId("admin", barberId);
+    syncBarberSelections();
+    refreshAllAfterBarberChange();
     $("#barberPasscodeInput").value = "";
-    if(note) note.textContent = "";
+    if(note) note.textContent = `${target.name}'s tools are unlocked.`;
   } else {
-    if(note) note.textContent = "Wrong passcode.";
+    if(note) note.textContent = "Wrong passcode for that barber.";
   }
-}
-
-function renderBarberPasscodes(){
-  const wrap = $("#barberPasscodeList");
-  if(!wrap) return;
-  const codes = getBarberPasscodes();
-  wrap.innerHTML = "";
-
-  if(!codes.length){
-    const empty = document.createElement("div");
-    empty.className = "muted tiny";
-    empty.textContent = "No passcodes saved yet.";
-    wrap.appendChild(empty);
-    return;
-  }
-
-  codes.forEach(code => {
-    const chip = document.createElement("div");
-    chip.className = "chip ok";
-    const masked = code.length <= 6 ? code : `${code.slice(0,3)}…${code.slice(-1)}`;
-    chip.textContent = `Passcode: ${masked}`;
-    wrap.appendChild(chip);
-  });
-}
-
-function addBarberPasscode(){
-  const input = $("#newBarberPasscode");
-  const note = $("#barberPasscodeNote");
-  const raw = input?.value?.trim() || "";
-
-  if(!raw){
-    if(note) note.textContent = "Enter a passcode first.";
-    return;
-  }
-
-  const existing = getBarberPasscodes();
-  if(existing.includes(raw)){
-    if(note) note.textContent = "That passcode already exists.";
-    return;
-  }
-
-  const next = saveBarberPasscodes([...existing, raw]);
-  renderBarberPasscodes();
-  if(note) note.textContent = `Saved ${next.length} passcode${next.length === 1 ? "" : "s"}.`;
-  if(input) input.value = "";
 }
 
 /* ----------------- Admin: queue ----------------- */
@@ -1759,11 +1705,6 @@ function onStorageSync(e){
     renderQueue();
   }
 
-  if(e.key === LS.adminSession){
-    state.adminSession = loadJSON(LS.adminSession, { barberId: null });
-    applyAdminLock();
-  }
-
   if(e.key === LS.gallery){
     setGalleryPhotos(loadJSON(LS.gallery, []), { skipLocal:true });
     renderGallery();
@@ -1771,8 +1712,14 @@ function onStorageSync(e){
     return;
   }
 
-  if(e.key === LS.barberPasscodes){
-    renderBarberPasscodes();
+  if(e.key === LS.barberUnlocked || e.key === LS.barberSession){
+    state.barberSession = loadJSON(LS.barberSession, { barberId:null });
+    applyBarberLock();
+    return;
+  }
+
+  if(e.key === LS.adminUnlocked){
+    applyAdminLock();
     return;
   }
 
@@ -1824,16 +1771,15 @@ async function init(){
   $("#calNext").addEventListener("click", (e)=>{ e.preventDefault(); goToMonth(1); });
 
   // barber desk lock/unlock
-  renderBarberPasscodes();
   $("#unlockBarberDesk").addEventListener("click", unlockBarberDesk);
   $("#lockBarberDesk").addEventListener("click", ()=> setBarberUnlocked(false));
   $("#barberPasscodeInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") unlockBarberDesk(); });
-  $("#addBarberPasscode").addEventListener("click", (e)=>{ e.preventDefault(); addBarberPasscode(); });
+  $("#barberDeskBarber").addEventListener("change", (e)=>{ setSelectedBarberId("admin", e.target.value); applyBarberLockToSelectors(); });
 
   // admin lock/unlock
   $("#unlockAdmin").addEventListener("click", unlockAdmin);
   $("#lockAdmin").addEventListener("click", ()=> setAdminUnlocked(false));
-  $("#pinInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") unlockAdmin(); });
+  $("#adminPinInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") unlockAdmin(); });
 
   // queue
   $("#addToQueue").addEventListener("click", (e)=>{ e.preventDefault(); addToQueue(); });

@@ -343,7 +343,7 @@
             <div>
               <p class="eyebrow">Barber Booking Desk</p>
               <h2>Barber Booking Desk</h2>
-              <p class="section-sub">Secure, barber-only desk with its own passcodes.</p>
+              <p class="section-sub">Each barber unlocks their own queue and calendar.</p>
             </div>
             <div class="admin-actions">
               <button class="ghost" id="lockBarberDesk" aria-pressed="false">Lock Barber Desk</button>
@@ -352,56 +352,23 @@
 
           <div class="panel admin-access">
             <h3>Desk access</h3>
-            <p class="muted">Enter a passcode to unlock. Multiple passcodes are supported.</p>
-            <div class="split access-row">
-              <input class="input" id="barberPasscodeInput" type="password" placeholder="Passcode" />
-              <button class="btn" id="unlockBarberDesk">Unlock</button>
+            <p class="muted">Pick your name and enter your barber passcode.</p>
+            <div class="form-grid">
+              <div class="fullrow">
+                <label class="label">Barber</label>
+                <select class="input" id="barberDeskBarber"></select>
+              </div>
+              <div class="fullrow split access-row">
+                <input class="input" id="barberPasscodeInput" type="password" placeholder="Passcode" />
+                <button class="btn" id="unlockBarberDesk">Unlock</button>
+              </div>
             </div>
             <div class="status" id="barberLockStatus">Barber desk locked.</div>
             <div class="muted tiny" id="barberLockNote"></div>
           </div>
 
-          <div class="panel admin-only is-locked" data-barber id="barberPasscodeManager">
-            <h3>Passcode list</h3>
-            <p class="muted">Add extra passcodes for teammates. Stored only on this device.</p>
-            <div class="split access-row">
-              <input class="input" id="newBarberPasscode" type="text" placeholder="New passcode" />
-              <button class="ghost" id="addBarberPasscode">Add passcode</button>
-            </div>
-            <div class="chip-row" id="barberPasscodeList"></div>
-            <div class="muted tiny" id="barberPasscodeNote"></div>
-          </div>
-        </div>
-
-        <div id="admin" class="admin">
-          <div class="admin-head">
-            <div>
-              <p class="eyebrow">Admin Booking Desk</p>
-              <h2>Admin Booking Desk</h2>
-              <p class="section-sub">Confirm/decline requests and edit the Book a Date &amp; Time schedule so you never double-book.</p>
-            </div>
-            <div class="admin-actions">
-              <div class="sync-indicator" id="syncStatus">Offline/Local Mode</div>
-              <button class="ghost" id="lockAdmin" aria-pressed="false">Lock Admin Desk</button>
-            </div>
-          </div>
-
-          <div class="panel admin-access">
-            <h3>Admin access</h3>
-            <p class="muted">Each barber uses their own passcode to unlock their queue and availability.</p>
-            <div class="split access-row">
-              <select class="input" id="pinBarber"></select>
-              <input class="input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="Barber passcode" />
-            </div>
-            <div class="split access-row">
-              <button class="btn full" id="unlockAdmin">Unlock as barber</button>
-            </div>
-            <div class="status" id="lockStatus">Admin desk locked.</div>
-            <div class="muted tiny" id="pinNote"></div>
-          </div>
-
           <div class="admin-grid">
-            <div class="panel admin-only is-locked" data-admin>
+            <div class="panel admin-only is-locked" data-barber>
               <h3>Request queue</h3>
               <p class="muted">Add incoming requests and confirm/decline them on the spot.</p>
 
@@ -471,7 +438,7 @@
               </div>
             </div>
 
-            <div class="panel admin-only is-locked" data-admin>
+            <div class="panel admin-only is-locked" data-barber>
               <h3>Availability editor</h3>
               <p class="muted">Block/open times instantly (affects the booking picker).</p>
 
@@ -508,6 +475,32 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div id="admin" class="admin">
+          <div class="admin-head">
+            <div>
+              <p class="eyebrow">Admin Booking Desk</p>
+              <h2>Admin Booking Desk</h2>
+              <p class="section-sub">Unlock with the admin passcode to manage the shop setup.</p>
+            </div>
+            <div class="admin-actions">
+              <div class="sync-indicator" id="syncStatus">Offline/Local Mode</div>
+              <button class="ghost" id="lockAdmin" aria-pressed="false">Lock Admin Desk</button>
+            </div>
+          </div>
+
+          <div class="panel admin-access">
+            <h3>Admin access</h3>
+            <p class="muted">Enter the admin passcode to unlock management tools.</p>
+            <div class="split access-row">
+              <input class="input" id="adminPinInput" inputmode="numeric" maxlength="4" placeholder="Admin passcode" />
+              <button class="btn" id="unlockAdmin">Unlock admin</button>
+            </div>
+            <div class="status" id="lockStatus">Admin desk locked.</div>
+            <div class="muted tiny" id="pinNote"></div>
+          </div>
+
         </div>
 
         <div class="panel admin-only is-locked" data-admin id="barberManager">
