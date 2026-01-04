@@ -27,17 +27,21 @@ const CONFIG = {
 };
 
 const LS = {
-  bookings: "vb_bookings_v2",     // [ bookingObj ]
-  overrides: "vb_overrides_v2",   // { "YYYY-MM-DD": { dayOff: bool, blocked: ["HH:MM"] } }
-  queue: "vb_queue_v2",           // [ {id,...} ]
+  barbers: "vb_barbers_v1",                 // [ {id, name, label, active, createdAt} ]
+  bookingsByBarber: "vb_bookings_by_barber_v1", // { barberId: [ bookingObj ] }
+  overridesByBarber: "vb_overrides_by_barber_v1", // { barberId: { date: { dayOff, blocked } } }
+  queueByBarber: "vb_queue_by_barber_v1",     // { barberId: [ queueItem ] }
   adminUnlocked: "vb_admin_unlocked_v1",
-  gallery: "vb_gallery_v2",       // [ {id, caption, imageData} ]
+  gallery: "vb_gallery_v2",                   // [ {id, caption, imageData} ]
+  legacyBookings: "vb_bookings_v2",
+  legacyOverrides: "vb_overrides_v2",
+  legacyQueue: "vb_queue_v2",
 };
 
 // older gallery keys that may contain photos from previous visits/devices
 const LEGACY_GALLERY_KEYS = ["vb_gallery", "vb_photos", "vb_gallery_v0"];
 
-const SYNC_KEYS = new Set([LS.bookings, LS.overrides, LS.queue, LS.gallery]);
+const SYNC_KEYS = new Set([LS.bookingsByBarber, LS.overridesByBarber, LS.queueByBarber, LS.gallery, LS.barbers]);
 
 /* ----------------- helpers ----------------- */
 const $ = (sel) => document.querySelector(sel);
@@ -195,11 +199,58 @@ function migrateLegacyGallery(raw){
   return photos || [];
 }
 
+function defaultBarbers(){
+  const now = Date.now();
+  return Array.from({ length: 4 }).map((_, idx)=>({
+    id: `barber-${idx+1}`,
+    name: `Barber ${idx+1}`,
+    label: "",
+    active: true,
+    createdAt: now + idx,
+  }));
+}
+
+function migrateLegacyStructures(){
+  let barbers = loadJSON(LS.barbers, []);
+  if(!Array.isArray(barbers) || barbers.length === 0){
+    barbers = defaultBarbers();
+    saveJSON(LS.barbers, barbers);
+  }
+
+  const defaultBarberId = barbers[0]?.id || "barber-1";
+
+  let bookingsByBarber = loadJSON(LS.bookingsByBarber, null);
+  if(!bookingsByBarber || typeof bookingsByBarber !== "object"){
+    const legacyBookings = normalizeBookingArray(loadJSON(LS.legacyBookings, []));
+    bookingsByBarber = { [defaultBarberId]: legacyBookings };
+    saveJSON(LS.bookingsByBarber, bookingsByBarber);
+  }
+
+  let overridesByBarber = loadJSON(LS.overridesByBarber, null);
+  if(!overridesByBarber || typeof overridesByBarber !== "object"){
+    const legacyOverrides = loadJSON(LS.legacyOverrides, {});
+    overridesByBarber = { [defaultBarberId]: legacyOverrides };
+    saveJSON(LS.overridesByBarber, overridesByBarber);
+  }
+
+  let queueByBarber = loadJSON(LS.queueByBarber, null);
+  if(!queueByBarber || typeof queueByBarber !== "object"){
+    const legacyQueue = loadJSON(LS.legacyQueue, []);
+    queueByBarber = { [defaultBarberId]: legacyQueue };
+    saveJSON(LS.queueByBarber, queueByBarber);
+  }
+
+  return { barbers, bookingsByBarber, overridesByBarber, queueByBarber };
+}
+
 const state = {
-  bookings: normalizeBookingArray(loadJSON(LS.bookings, [])),
-  overrides: loadJSON(LS.overrides, {}),
-  queue: loadJSON(LS.queue, []),
+  ...migrateLegacyStructures(),
   gallery: migrateLegacyGallery(loadJSON(LS.gallery, [])),
+  selected: {
+    bookingBarberId: null,
+    queueBarberId: null,
+    adminBarberId: null,
+  },
 };
 
 function setSyncStatus(connected){
@@ -215,17 +266,42 @@ function showDbBanner() {
 }
 
 
-function getBookings(){
-  return state.bookings || [];
+function getBarbers(){
+  return Array.isArray(state.barbers) ? state.barbers : [];
 }
-function setBookings(list, opts={ skipLocal:false }){
-  state.bookings = Array.isArray(list) ? list : [];
-  if(!opts.skipLocal) saveJSON(LS.bookings, state.bookings);
+function setBarbers(list, opts={ skipLocal:false }){
+  state.barbers = Array.isArray(list) ? list : [];
+  if(!opts.skipLocal) saveJSON(LS.barbers, state.barbers);
 }
 
-function getBookingMap(){
+function getSelectedBarberId(kind="booking"){
+  return state.selected?.[`${kind}BarberId`] || null;
+}
+
+function setSelectedBarberId(kind, id){
+  if(!state.selected) state.selected = {};
+  state.selected[`${kind}BarberId`] = id;
+}
+
+function getActiveBarberFallback(){
+  const active = getBarbers().filter(b=> b.active !== false);
+  return active[0]?.id || getBarbers()[0]?.id || "barber-1";
+}
+
+function getBookings(barberId){
+  const map = state.bookingsByBarber || {};
+  return map[barberId] || [];
+}
+function setBookings(list, barberId, opts={ skipLocal:false }){
+  const map = state.bookingsByBarber || {};
+  map[barberId] = Array.isArray(list) ? list : [];
+  state.bookingsByBarber = { ...map };
+  if(!opts.skipLocal) saveJSON(LS.bookingsByBarber, state.bookingsByBarber);
+}
+
+function getBookingMap(barberId){
   const map = {};
-  getBookings().forEach(b=>{
+  getBookings(barberId).forEach(b=>{
     if(!b.date || !b.time) return;
     if(!map[b.date]) map[b.date] = {};
     map[b.date][b.time] = b;
@@ -233,20 +309,26 @@ function getBookingMap(){
   return map;
 }
 
-function getOverrides(){
-  return state.overrides || {};
+function getOverrides(barberId){
+  const map = state.overridesByBarber || {};
+  return map[barberId] || {};
 }
-function setOverrides(o, opts={ skipLocal:false }){
-  state.overrides = o || {};
-  if(!opts.skipLocal) saveJSON(LS.overrides, state.overrides);
+function setOverrides(o, barberId, opts={ skipLocal:false }){
+  const map = state.overridesByBarber || {};
+  map[barberId] = o || {};
+  state.overridesByBarber = { ...map };
+  if(!opts.skipLocal) saveJSON(LS.overridesByBarber, state.overridesByBarber);
 }
 
-function getQueue(){
-  return state.queue || [];
+function getQueue(barberId){
+  const map = state.queueByBarber || {};
+  return map[barberId] || [];
 }
-function setQueue(q, opts={ skipLocal:false }){
-  state.queue = Array.isArray(q) ? q : [];
-  if(!opts.skipLocal) saveJSON(LS.queue, state.queue);
+function setQueue(q, barberId, opts={ skipLocal:false }){
+  const map = state.queueByBarber || {};
+  map[barberId] = Array.isArray(q) ? q : [];
+  state.queueByBarber = { ...map };
+  if(!opts.skipLocal) saveJSON(LS.queueByBarber, state.queueByBarber);
 }
 
 function getGalleryPhotos(){
@@ -257,31 +339,34 @@ function setGalleryPhotos(arr, opts={ skipLocal:false }){
   if(!opts.skipLocal) saveJSON(LS.gallery, state.gallery);
 }
 
-function markTaken(dateISO, timeHHMM, bookingObj){
-  const bookings = getBookings().filter(b=> !(b.date === dateISO && b.time === timeHHMM));
+function markTaken(dateISO, timeHHMM, bookingObj, barberId){
+  const id = barberId || getSelectedBarberId();
+  const bookings = getBookings(id).filter(b=> !(b.date === dateISO && b.time === timeHHMM));
   bookings.push(bookingObj || { id: uuid(), date: dateISO, time: timeHHMM, status: "approved" });
-  setBookings(bookings);
+  setBookings(bookings, id);
 }
 
-function clearTaken(dateISO, timeHHMM){
-  const bookings = getBookings().filter(b=> !(b.date === dateISO && b.time === timeHHMM));
-  setBookings(bookings);
+function clearTaken(dateISO, timeHHMM, barberId){
+  const id = barberId || getSelectedBarberId();
+  const bookings = getBookings(id).filter(b=> !(b.date === dateISO && b.time === timeHHMM));
+  setBookings(bookings, id);
 }
 
-function isTaken(dateISO, timeHHMM){
-  return getBookings().some(b=> b.date === dateISO && b.time === timeHHMM && b.status !== "declined");
+function isTaken(dateISO, timeHHMM, barberId){
+  const id = barberId || getSelectedBarberId();
+  return getBookings(id).some(b=> b.date === dateISO && b.time === timeHHMM && b.status !== "declined");
 }
 
-function isBlocked(dateISO, timeHHMM){
-  const ov = getOverrides();
+function isBlocked(dateISO, timeHHMM, barberId){
+  const ov = getOverrides(barberId || getSelectedBarberId());
   const entry = ov && ov[dateISO];
   if(!entry) return false;
   if(entry.dayOff) return true;
   return (entry.blocked || []).includes(timeHHMM);
 }
 
-function isDayOff(dateISO){
-  const ov = getOverrides();
+function isDayOff(dateISO, barberId){
+  const ov = getOverrides(barberId || getSelectedBarberId());
   return Boolean(ov && ov[dateISO] && ov[dateISO].dayOff);
 }
 
@@ -318,56 +403,69 @@ async function saveBookingRecord(booking){
   const payload = { ...booking };
   if(!payload.id) payload.id = uuid();
   if(!payload.createdAt) payload.createdAt = Date.now();
+  const barberId = payload.barberId || getSelectedBarberId() || getActiveBarberFallback();
+  payload.barberId = barberId;
 
-  const list = getBookings().filter(b=> b.id !== payload.id);
+  const list = getBookings(barberId).filter(b=> b.id !== payload.id);
   list.push(payload);
-  setBookings(list);
+  setBookings(list, barberId);
 
   renderCalendar();
   refreshBookingPickers(payload.date);
 }
 
 async function updateBookingStatus(id, status){
-  const list = getBookings();
-  const idx = list.findIndex(b=> b.id === id);
-  if(idx !== -1){
-    list[idx].status = status;
-    setBookings([...list]);
-  }
+  const map = state.bookingsByBarber || {};
+  Object.entries(map).forEach(([barberId, list])=>{
+    const idx = (list || []).findIndex(b=> b.id === id);
+    if(idx !== -1){
+      const updated = [...list];
+      updated[idx] = { ...updated[idx], status };
+      setBookings(updated, barberId);
+    }
+  });
 
   renderCalendar();
 }
 
-async function saveOverridesRemote(map){
-  setOverrides(map);
+async function saveOverridesRemote(map, barberId){
+  setOverrides(map, barberId || getSelectedBarberId("admin") || getActiveBarberFallback());
 }
 
 async function saveQueueItem(item){
   const payload = { ...item };
   if(!payload.id) payload.id = uuid();
   if(!payload.createdAt) payload.createdAt = Date.now();
+  const barberId = payload.barberId || getSelectedBarberId("queue") || getActiveBarberFallback();
+  payload.barberId = barberId;
 
-  const next = getQueue().filter(q=> q.id !== payload.id);
+  const next = getQueue(barberId).filter(q=> q.id !== payload.id);
   next.unshift(payload);
-  setQueue(next);
+  setQueue(next, barberId);
 
   renderQueue();
 }
 
 async function updateQueueItem(id, changes){
-  const list = getQueue();
-  const idx = list.findIndex(q=> q.id === id);
-  if(idx !== -1){
-    list[idx] = { ...list[idx], ...changes };
-    setQueue([...list]);
-  }
+  const map = state.queueByBarber || {};
+  Object.entries(map).forEach(([barberId, list])=>{
+    const idx = (list || []).findIndex(q=> q.id === id);
+    if(idx !== -1){
+      const updated = [...list];
+      updated[idx] = { ...updated[idx], ...changes };
+      setQueue(updated, barberId);
+    }
+  });
 
   renderQueue();
 }
 
 async function removeQueueItem(id){
-  const next = getQueue().filter(q=> q.id !== id);
-  setQueue(next);
+  const map = state.queueByBarber || {};
+  Object.entries(map).forEach(([barberId, list])=>{
+    const next = (list || []).filter(q=> q.id !== id);
+    setQueue(next, barberId);
+  });
 
   renderQueue();
 }
@@ -409,19 +507,19 @@ function generateSlots(dateISO){
   return slots;
 }
 
-function availableSlots(dateISO){
+function availableSlots(dateISO, barberId){
   const slots = generateSlots(dateISO);
   return slots.filter(t=>{
     if(isPastSlot(dateISO,t)) return false;
-    if(isBlocked(dateISO,t)) return false;
-    if(isTaken(dateISO,t)) return false;
+    if(isBlocked(dateISO,t, barberId)) return false;
+    if(isTaken(dateISO,t, barberId)) return false;
     return true;
   });
 }
 
-function takenSlots(dateISO){
+function takenSlots(dateISO, barberId){
   const slots = generateSlots(dateISO);
-  return slots.filter(t=> isBlocked(dateISO,t) || isTaken(dateISO,t));
+  return slots.filter(t=> isBlocked(dateISO,t, barberId) || isTaken(dateISO,t, barberId));
 }
 
 /* ----------------- UI: header links + mobile menu ----------------- */
@@ -477,6 +575,63 @@ function setupMobileMenu(){
       a.addEventListener("click", ()=> menu.classList.remove("show"));
     });
   }
+}
+
+function renderBarberOptions(selectEl, barbers, includeInactive=false){
+  if(!selectEl) return;
+  selectEl.innerHTML = "";
+  const usable = includeInactive ? barbers : barbers.filter(b=> b.active !== false);
+  if(!usable.length){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No barbers available";
+    selectEl.appendChild(opt);
+    selectEl.disabled = true;
+    return;
+  }
+  selectEl.disabled = false;
+  if(selectEl.id === "bBarber"){
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select a barber";
+    selectEl.appendChild(placeholder);
+  }
+  usable.forEach(b=>{
+    const opt = document.createElement("option");
+    opt.value = b.id;
+    opt.textContent = b.label ? `${b.name} (${b.label})` : b.name;
+    selectEl.appendChild(opt);
+  });
+}
+
+function syncBarberSelections(){
+  if(!getBarbers().length){
+    setBarbers(defaultBarbers());
+  }
+  const barbers = getBarbers();
+  const active = barbers.filter(b=> b.active !== false);
+
+  if(getSelectedBarberId("booking") && !active.some(b=> b.id === getSelectedBarberId("booking"))){
+    setSelectedBarberId("booking", null);
+  }
+  if(!getSelectedBarberId("queue") || !barbers.some(b=> b.id === getSelectedBarberId("queue"))){
+    setSelectedBarberId("queue", barbers[0]?.id || null);
+  }
+  if(!getSelectedBarberId("admin") || !barbers.some(b=> b.id === getSelectedBarberId("admin"))){
+    setSelectedBarberId("admin", barbers[0]?.id || null);
+  }
+
+  const bookingSel = $("#bBarber");
+  const queueSel = $("#qBarber");
+  const adminSel = $("#aBarber");
+
+  renderBarberOptions(bookingSel, barbers);
+  renderBarberOptions(queueSel, barbers, true);
+  renderBarberOptions(adminSel, barbers, true);
+
+  if(bookingSel){ bookingSel.value = getSelectedBarberId("booking") || ""; }
+  if(queueSel){ queueSel.value = getSelectedBarberId("queue") || ""; }
+  if(adminSel){ adminSel.value = getSelectedBarberId("admin") || ""; }
 }
 
 /* ----------------- UI: gallery ----------------- */
@@ -571,6 +726,18 @@ function renderPhotoManager(){
   });
 }
 
+function addBarberFromAdmin(){
+  const barbers = [...getBarbers()];
+  const name = prompt("New barber name", `Barber ${barbers.length + 1}`);
+  if(!name) return;
+  const id = `barber-${uuid()}`;
+  barbers.push({ id, name: name.trim(), label: "", active: true, createdAt: Date.now() });
+  setBarbers(barbers);
+  syncBarberSelections();
+  renderBarberManager();
+  refreshAllAfterBarberChange();
+}
+
 function setPhotoUploadNote(msg, ok=false){
   const el = $("#photoUploadNote");
   if(!el) return;
@@ -618,6 +785,7 @@ function bindUploadControl(btnId, inputId, label){
 
 /* ----------------- UI: booking form ----------------- */
 function selectDate(dateISO){
+  if(!getSelectedBarberId("booking")) return;
   $("#bDate").value = dateISO;
   hydrateBookingTimes(dateISO);
   renderCalendar();
@@ -631,6 +799,9 @@ function renderCalendar(){
   const prevBtn = $("#calPrev");
   const nextBtn = $("#calNext");
   const tzLabel = $("#calTimezone");
+  const calCard = document.querySelector(".calendar-card");
+  const barberId = getSelectedBarberId("booking");
+  const hasBarber = Boolean(barberId);
   const minMonth = monthStartISO(MIN_DATE);
   const maxMonth = monthStartISO(MAX_DATE);
 
@@ -640,10 +811,19 @@ function renderCalendar(){
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "local time";
     tzLabel.textContent = `Times shown in ${tz}.`;
   }
-  prevBtn.disabled = calendarMonthISO <= minMonth;
-  nextBtn.disabled = calendarMonthISO >= maxMonth;
+  prevBtn.disabled = !hasBarber || calendarMonthISO <= minMonth;
+  nextBtn.disabled = !hasBarber || calendarMonthISO >= maxMonth;
 
   daysWrap.innerHTML = "";
+  if(calCard){ calCard.classList.toggle("is-disabled", !hasBarber); }
+
+  if(!hasBarber){
+    const empty = document.createElement("div");
+    empty.className = "cal-empty muted tiny";
+    empty.textContent = "Select a barber to see availability.";
+    daysWrap.appendChild(empty);
+    return;
+  }
   const year = base.getFullYear();
   const month = base.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
@@ -660,10 +840,10 @@ function renderCalendar(){
 
     const inRange = isWithinRange(iso);
     const hours = getHoursForDate(iso);
-    const dayOff = isDayOff(iso);
+    const dayOff = isDayOff(iso, barberId);
     const hasHours = Boolean(hours) && !dayOff;
-    const openCount = hasHours ? availableSlots(iso).length : 0;
-    const takenCount = hasHours ? takenSlots(iso).length : 0;
+    const openCount = hasHours ? availableSlots(iso, barberId).length : 0;
+    const takenCount = hasHours ? takenSlots(iso, barberId).length : 0;
 
     let meta = hasHours ? `${openCount} open` : (dayOff ? "Day off" : "Closed");
     let statusClass = "status-off";
@@ -721,6 +901,24 @@ function hydrateBookingTimes(dateISO){
   const sel = $("#bTime");
   sel.innerHTML = "";
   $("#takenChips").innerHTML = "";
+  const barberId = getSelectedBarberId("booking");
+
+  const sendBtn = $("#sendBookingText");
+  if(sendBtn) sendBtn.disabled = !barberId;
+
+  if(!barberId){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Select a barber first";
+    sel.appendChild(opt);
+    sel.disabled = true;
+    $("#takenText").textContent = "";
+    $("#takenChips").innerHTML = "";
+    $("#barberHint").textContent = "Select a barber to see availability.";
+    return;
+  }
+  sel.disabled = false;
+  $("#barberHint").textContent = "";
 
   if(!dateISO){
     const opt = document.createElement("option");
@@ -747,8 +945,8 @@ function hydrateBookingTimes(dateISO){
     return;
   }
 
-  const open = availableSlots(dateISO);
-  const taken = takenSlots(dateISO);
+  const open = availableSlots(dateISO, barberId);
+  const taken = takenSlots(dateISO, barberId);
 
   if(open.length === 0){
     const opt = document.createElement("option");
@@ -785,6 +983,7 @@ function hydrateBookingTimes(dateISO){
 }
 
 async function sendBookingSMS(){
+  const barberId = getSelectedBarberId("booking");
   const name = $("#bName").value.trim();
   const phone = $("#bPhone").value.trim();
   const service = $("#bService").value;
@@ -792,13 +991,18 @@ async function sendBookingSMS(){
   const time = $("#bTime").value;
   const notes = $("#bNotes").value.trim();
 
+  if(!barberId){
+    alert("Please select a barber first.");
+    return;
+  }
+
   if(!name || !phone || !date || !time){
     alert("Please fill Name, Phone, Date, and Time.");
     return;
   }
 
   // re-check availability right before sending
-  if(isPastSlot(date,time) || isBlocked(date,time) || isTaken(date,time)){
+  if(isPastSlot(date,time) || isBlocked(date,time, barberId) || isTaken(date,time, barberId)){
     alert("That time is no longer available. Please pick another slot.");
     hydrateBookingTimes(date);
     return;
@@ -813,6 +1017,7 @@ async function sendBookingSMS(){
     date,
     time,
     notes,
+    barberId,
     status: "pending",
     createdAt: Date.now(),
   };
@@ -826,6 +1031,7 @@ async function sendBookingSMS(){
     date,
     time,
     notes,
+    barberId,
     status: "pending",
     createdAt: bookingPayload.createdAt,
   });
@@ -835,6 +1041,7 @@ async function sendBookingSMS(){
 Name: ${name}
 Phone: ${phone}
 Service: ${service}
+Barber: ${getBarbers().find(b=>b.id===barberId)?.name || "Barber"}
 Date/Time: ${date} @ ${formatTime12(time)}
 Notes: ${notes || "N/A"}
 
@@ -890,12 +1097,20 @@ function unlockAdmin(){
 /* ----------------- Admin: queue ----------------- */
 function renderQueue(){
   const tbody = $("#queueTable");
-  const q = getQueue();
+  const barberId = getSelectedBarberId("queue") || getActiveBarberFallback();
+  const q = getQueue(barberId);
   tbody.innerHTML = "";
+
+  if(!barberId){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4" class="muted">Select a barber to manage the queue.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
 
   if(q.length === 0){
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="4" class="muted">No queued requests yet.</td>`;
+    tr.innerHTML = `<td colspan="4" class="muted">No queued requests yet for this barber.</td>`;
     tbody.appendChild(tr);
     return;
   }
@@ -940,12 +1155,18 @@ function renderQueue(){
 }
 
 function addToQueue(){
+  const barberId = $("#qBarber").value || getSelectedBarberId("queue") || getActiveBarberFallback();
   const name = $("#qName").value.trim();
   const phone = $("#qPhone").value.trim();
   const service = $("#qService").value;
   const date = $("#qDate").value;
   const time = $("#qTime").value;
   const notes = $("#qNotes").value.trim();
+
+  if(!barberId){
+    alert("Select a barber first.");
+    return;
+  }
 
   if(!name || !phone || !date || !time){
     alert("Fill Name, Phone, Date, and Time.");
@@ -961,6 +1182,7 @@ function addToQueue(){
     date,
     time,
     notes,
+    barberId,
     status: "pending",
     createdAt: Date.now()
   };
@@ -974,19 +1196,30 @@ function addToQueue(){
 }
 
 async function handleQueueAction(act, id){
-  const q = getQueue();
-  const idx = q.findIndex(x=>x.id===id);
-  if(idx === -1) return;
+  let item = null;
+  let barberId = null;
+  Object.entries(state.queueByBarber || {}).forEach(([bId, list])=>{
+    if(item) return;
+    const idx = (list || []).findIndex(x=> x.id === id);
+    if(idx !== -1){
+      item = list[idx];
+      barberId = bId;
+    }
+  });
 
-  const item = q[idx];
+  if(!item){
+    return;
+  }
+
+  barberId = item.barberId || barberId || getSelectedBarberId("queue") || getActiveBarberFallback();
 
   if(act === "confirm"){
     // mark time as taken (confirmed booking)
-    if(isBlocked(item.date, item.time) || isTaken(item.date, item.time)){
+    if(isBlocked(item.date, item.time, barberId) || isTaken(item.date, item.time, barberId)){
       alert("That slot is already blocked/taken. Choose a different time.");
       return;
     }
-    const existingBooking = getBookings().find(b=> b.id === item.id);
+    const existingBooking = getBookings(barberId).find(b=> b.id === item.id);
     const bookingPayload = existingBooking || {
       id: item.id,
       name: item.name,
@@ -995,10 +1228,11 @@ async function handleQueueAction(act, id){
       date: item.date,
       time: item.time,
       notes: item.notes || "",
+      barberId,
       status: "approved",
       createdAt: item.createdAt || Date.now(),
     };
-    await saveBookingRecord({ ...bookingPayload, status: "approved" });
+    await saveBookingRecord({ ...bookingPayload, status: "approved", barberId });
     await updateQueueItem(item.id, { status: "approved" });
     refreshBookingPickers(item.date);
     alert("Confirmed and saved to calendar (taken).");
@@ -1019,6 +1253,11 @@ async function handleQueueAction(act, id){
 function hydrateAdminTimes(dateISO){
   const grid = $("#aTimes");
   grid.innerHTML = "";
+  const barberId = getSelectedBarberId("admin") || getActiveBarberFallback();
+  if(!barberId){
+    grid.innerHTML = `<div class="muted tiny">Select a barber.</div>`;
+    return;
+  }
 
   if(!dateISO){
     grid.innerHTML = `<div class="muted tiny">Pick a date.</div>`;
@@ -1032,7 +1271,7 @@ function hydrateAdminTimes(dateISO){
     return;
   }
 
-  const ov = getOverrides();
+  const ov = getOverrides(barberId);
   const entry = (ov && ov[dateISO]) ? ov[dateISO] : { dayOff:false, blocked:[] };
   $("#aDayOff").checked = Boolean(entry.dayOff);
 
@@ -1048,12 +1287,12 @@ function hydrateAdminTimes(dateISO){
     pill.addEventListener("click", ()=>{
       // toggle blocked time (only if not dayOff)
       if($("#aDayOff").checked) return;
-      const ov2 = getOverrides();
+      const ov2 = getOverrides(barberId);
       if(!ov2[dateISO]) ov2[dateISO] = { dayOff:false, blocked:[] };
       const b = new Set(ov2[dateISO].blocked || []);
       if(b.has(t)) b.delete(t); else b.add(t);
       ov2[dateISO].blocked = Array.from(b).sort();
-      saveOverridesRemote(ov2);
+      saveOverridesRemote(ov2, barberId);
       hydrateAdminTimes(dateISO);
       refreshBookingPickers(dateISO);
     });
@@ -1063,23 +1302,25 @@ function hydrateAdminTimes(dateISO){
 }
 
 function saveDayOffToggle(dateISO){
-  const ov = getOverrides();
+  const barberId = getSelectedBarberId("admin") || getActiveBarberFallback();
+  const ov = getOverrides(barberId);
   if(!ov[dateISO]) ov[dateISO] = { dayOff:false, blocked:[] };
   ov[dateISO].dayOff = $("#aDayOff").checked;
   if(ov[dateISO].dayOff){
     // if day off, no need to keep individual blocks
     ov[dateISO].blocked = ov[dateISO].blocked || [];
   }
-  saveOverridesRemote(ov);
+  saveOverridesRemote(ov, barberId);
   hydrateAdminTimes(dateISO);
   refreshBookingPickers(dateISO);
 }
 
 function clearOverridesForDate(dateISO){
-  const ov = getOverrides();
+  const barberId = getSelectedBarberId("admin") || getActiveBarberFallback();
+  const ov = getOverrides(barberId);
   if(ov[dateISO]){
     delete ov[dateISO];
-    saveOverridesRemote(ov);
+    saveOverridesRemote(ov, barberId);
   }
   hydrateAdminTimes(dateISO);
   refreshBookingPickers(dateISO);
@@ -1094,6 +1335,16 @@ function refreshBookingPickers(dateISO){
 function hydrateQueueTimes(dateISO){
   const sel = $("#qTime");
   sel.innerHTML = "";
+  const barberId = getSelectedBarberId("queue");
+  if(!barberId){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Select a barber first";
+    sel.appendChild(opt);
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
   if(!dateISO){
     const opt = document.createElement("option");
     opt.value = "";
@@ -1111,7 +1362,7 @@ function hydrateQueueTimes(dateISO){
     return;
   }
 
-  const open = availableSlots(dateISO);
+  const open = availableSlots(dateISO, barberId);
   if(open.length === 0){
     const opt = document.createElement("option");
     opt.value = "";
@@ -1130,20 +1381,34 @@ function hydrateQueueTimes(dateISO){
 
 function markDayAvailableFromQueue(){
   const dateISO = $("#qDate").value;
+  const barberId = getSelectedBarberId("queue") || getActiveBarberFallback();
   if(!dateISO){
     alert("Pick a date first.");
     return;
   }
 
-  const ov = getOverrides();
+  const ov = getOverrides(barberId);
   if(ov[dateISO]){
     delete ov[dateISO];
-    saveOverridesRemote(ov);
+    saveOverridesRemote(ov, barberId);
   }
 
   $("#aDate").value = dateISO;
+  $("#aBarber").value = barberId;
+  setSelectedBarberId("admin", barberId);
   hydrateAdminTimes(dateISO);
   refreshBookingPickers(dateISO);
+}
+
+function refreshAllAfterBarberChange(){
+  renderCalendar();
+  const bDate = $("#bDate").value;
+  const qDate = $("#qDate").value;
+  const aDate = $("#aDate").value;
+  if(bDate) hydrateBookingTimes(bDate);
+  if(qDate) hydrateQueueTimes(qDate);
+  if(aDate) hydrateAdminTimes(aDate);
+  renderQueue();
 }
 
 /* ----------------- misc ----------------- */
@@ -1153,19 +1418,133 @@ function escapeHtml(str){
   }[s]));
 }
 
+function renderBarberManager(){
+  const list = $("#barberList");
+  if(!list) return;
+  const barbers = getBarbers();
+  list.innerHTML = "";
+
+  if(!barbers.length){
+    const empty = document.createElement("div");
+    empty.className = "muted tiny";
+    empty.textContent = "No barbers yet. Add one to start booking.";
+    list.appendChild(empty);
+    return;
+  }
+
+  barbers.forEach((b, idx)=>{
+    const row = document.createElement("div");
+    row.className = "barber-row";
+    const statusText = b.active === false ? "Inactive" : "Active";
+    row.innerHTML = `
+      <div class="barber-main">
+        <div class="barber-name">${escapeHtml(b.name)}</div>
+        <div class="muted tiny">${escapeHtml(statusText)}${b.label ? ` • ${escapeHtml(b.label)}` : ""}</div>
+      </div>
+      <div class="barber-controls">
+        <button class="ghost tiny-btn" data-act="up" data-idx="${idx}">↑</button>
+        <button class="ghost tiny-btn" data-act="down" data-idx="${idx}">↓</button>
+        <button class="ghost tiny-btn" data-act="toggle" data-idx="${idx}">${b.active === false ? "Activate" : "Deactivate"}</button>
+        <button class="ghost tiny-btn" data-act="rename" data-idx="${idx}">Rename</button>
+        <button class="ghost danger tiny-btn" data-act="delete" data-idx="${idx}">Delete</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll("button[data-act]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const act = btn.getAttribute("data-act");
+      const idx = Number(btn.getAttribute("data-idx"));
+      const barbersNow = [...getBarbers()];
+      const target = barbersNow[idx];
+      if(!target) return;
+
+      if(act === "rename"){
+        const nextName = prompt("Barber name", target.name);
+        if(nextName){
+          barbersNow[idx] = { ...target, name: nextName.trim() };
+          setBarbers(barbersNow);
+          syncBarberSelections();
+          renderBarberManager();
+          refreshAllAfterBarberChange();
+        }
+      }
+
+      if(act === "toggle"){
+        barbersNow[idx] = { ...target, active: target.active === false };
+        setBarbers(barbersNow);
+        syncBarberSelections();
+        renderBarberManager();
+        refreshAllAfterBarberChange();
+      }
+
+      if(act === "up" && idx > 0){
+        [barbersNow[idx-1], barbersNow[idx]] = [barbersNow[idx], barbersNow[idx-1]];
+        setBarbers(barbersNow);
+        syncBarberSelections();
+        renderBarberManager();
+        refreshAllAfterBarberChange();
+      }
+
+      if(act === "down" && idx < barbersNow.length - 1){
+        [barbersNow[idx+1], barbersNow[idx]] = [barbersNow[idx], barbersNow[idx+1]];
+        setBarbers(barbersNow);
+        syncBarberSelections();
+        renderBarberManager();
+        refreshAllAfterBarberChange();
+      }
+
+      if(act === "delete"){
+        const confirmRemove = confirm(`Remove ${target.name} from the selector?`);
+        if(!confirmRemove) return;
+        const deleteData = confirm("Delete this barber's bookings/overrides/queue? (Cancel to archive data)");
+
+        barbersNow.splice(idx,1);
+        setBarbers(barbersNow);
+
+        if(deleteData){
+          const bookingsMap = { ...(state.bookingsByBarber || {}) };
+          const ovMap = { ...(state.overridesByBarber || {}) };
+          const queueMap = { ...(state.queueByBarber || {}) };
+          delete bookingsMap[target.id];
+          delete ovMap[target.id];
+          delete queueMap[target.id];
+          state.bookingsByBarber = bookingsMap;
+          state.overridesByBarber = ovMap;
+          state.queueByBarber = queueMap;
+          saveJSON(LS.bookingsByBarber, bookingsMap);
+          saveJSON(LS.overridesByBarber, ovMap);
+          saveJSON(LS.queueByBarber, queueMap);
+        }
+
+        syncBarberSelections();
+        renderBarberManager();
+        refreshAllAfterBarberChange();
+      }
+    });
+  });
+}
+
 function onStorageSync(e){
   if(!SYNC_KEYS.has(e.key)) return;
 
-  if(e.key === LS.bookings){
-    setBookings(normalizeBookingArray(loadJSON(LS.bookings, [])), { skipLocal:true });
+  if(e.key === LS.barbers){
+    setBarbers(loadJSON(LS.barbers, []), { skipLocal:true });
+    syncBarberSelections();
+    renderBarberManager();
   }
 
-  if(e.key === LS.overrides){
-    setOverrides(loadJSON(LS.overrides, {}), { skipLocal:true });
+  if(e.key === LS.bookingsByBarber){
+    state.bookingsByBarber = loadJSON(LS.bookingsByBarber, {});
   }
 
-  if(e.key === LS.queue){
-    setQueue(loadJSON(LS.queue, []), { skipLocal:true });
+  if(e.key === LS.overridesByBarber){
+    state.overridesByBarber = loadJSON(LS.overridesByBarber, {});
+  }
+
+  if(e.key === LS.queueByBarber){
+    state.queueByBarber = loadJSON(LS.queueByBarber, {});
     renderQueue();
   }
 
@@ -1197,6 +1576,8 @@ async function init(){
   setupMobileMenu();
   renderGallery();
   renderPhotoManager();
+  syncBarberSelections();
+  renderBarberManager();
   clampDateInputs();
 
   showDbBanner("");
@@ -1216,6 +1597,7 @@ async function init(){
 
   // listeners
   $("#bDate").addEventListener("change", (e)=> hydrateBookingTimes(e.target.value));
+  $("#bBarber").addEventListener("change", (e)=>{ setSelectedBarberId("booking", e.target.value); refreshAllAfterBarberChange(); });
   $("#sendBookingText").addEventListener("click", (e)=>{ e.preventDefault(); sendBookingSMS(); });
   $("#calPrev").addEventListener("click", (e)=>{ e.preventDefault(); goToMonth(-1); });
   $("#calNext").addEventListener("click", (e)=>{ e.preventDefault(); goToMonth(1); });
@@ -1228,10 +1610,12 @@ async function init(){
   // queue
   $("#addToQueue").addEventListener("click", (e)=>{ e.preventDefault(); addToQueue(); });
   $("#qDate").addEventListener("change", (e)=> hydrateQueueTimes(e.target.value));
+  $("#qBarber").addEventListener("change", (e)=>{ setSelectedBarberId("queue", e.target.value); refreshAllAfterBarberChange(); });
   $("#markDayAvailable").addEventListener("click", (e)=>{ e.preventDefault(); markDayAvailableFromQueue(); });
 
   // availability editor
   $("#aDate").addEventListener("change", (e)=> hydrateAdminTimes(e.target.value));
+  $("#aBarber").addEventListener("change", (e)=>{ setSelectedBarberId("admin", e.target.value); refreshAllAfterBarberChange(); });
   $("#aDayOff").addEventListener("change", ()=> saveDayOffToggle($("#aDate").value));
   $("#clearOverrides").addEventListener("click", (e)=>{ e.preventDefault(); clearOverridesForDate($("#aDate").value); });
 
@@ -1246,6 +1630,9 @@ async function init(){
   bindUploadControl("#btnTakePhoto", "#inputTakePhoto", "Photo");
   bindUploadControl("#btnUploadFile", "#inputUploadFile", "Upload");
   bindUploadControl("#btnCameraRoll", "#inputCameraRoll", "Camera roll");
+
+  // barbers
+  $("#addBarber").addEventListener("click", (e)=>{ e.preventDefault(); addBarberFromAdmin(); });
 
   // cross-tab sync so edits mirror instantly everywhere
   setupStorageSync();

@@ -289,6 +289,8 @@ textarea.input{resize:vertical}
   border-color: rgba(200,16,46,.85);
   background: rgba(200,16,46,.16);
 }
+.calendar-card.is-disabled{opacity:.6; pointer-events:none; filter:grayscale(.1)}
+.cal-empty{grid-column: 1 / -1; text-align:center; padding:18px; border:1px dashed rgba(255,255,255,.14); border-radius:14px; background:rgba(0,0,0,.25)}
 
 .muted{color:var(--muted)}
 .tiny{font-size:12px}
@@ -331,6 +333,12 @@ textarea.input{resize:vertical}
 .tiny-btn{padding:8px 10px; font-size:12px; border-radius:10px}
 .ghost.danger{border-color: rgba(200,16,46,.35); color:#f7d7de}
 .ghost.danger:hover{border-color: rgba(200,16,46,.65); color:#fff}
+.barber-actions{margin-bottom:10px; display:flex; justify-content:flex-end}
+.barber-list{display:flex; flex-direction:column; gap:10px}
+.barber-row{display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center; padding:12px; border:1px solid rgba(255,255,255,.12); border-radius:14px; background:rgba(255,255,255,.03)}
+.barber-main{display:flex; flex-direction:column}
+.barber-name{font-weight:800}
+.barber-controls{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
 
 .admin-access{background: linear-gradient(120deg, rgba(255,255,255,.08), rgba(255,255,255,.02));}
 .access-row{align-items:center}
