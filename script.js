@@ -1131,6 +1131,7 @@ function setAdminUnlocked(val){
 
 function applyBarberLockToSelectors(){
   const sessionBarberId = getUnlockedBarberId();
+  const deskSel = $("#barberDeskBarber");
   const queueSel = $("#qBarber");
   const adminSel = $("#aBarber");
   const bookingSel = $("#bBarber");
@@ -1141,18 +1142,29 @@ function applyBarberLockToSelectors(){
     setSelectedBarberId("admin", sessionBarberId);
   }
 
-  [queueSel, adminSel].forEach(sel=>{
+  [deskSel, queueSel, adminSel].forEach(sel=>{
     if(!sel) return;
     if(sessionBarberId){
       sel.value = sessionBarberId;
       sel.disabled = true;
+      sel.setAttribute("aria-disabled", "true");
     } else {
       sel.disabled = false;
+      sel.removeAttribute("aria-disabled");
     }
   });
 
   if(bookingSel && sessionBarberId){
     bookingSel.value = sessionBarberId;
+  }
+
+  if(bookingSel){
+    bookingSel.disabled = Boolean(sessionBarberId);
+    if(sessionBarberId){
+      bookingSel.setAttribute("aria-disabled", "true");
+    } else {
+      bookingSel.removeAttribute("aria-disabled");
+    }
   }
 }
 
