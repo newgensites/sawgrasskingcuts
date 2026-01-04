@@ -7,8 +7,8 @@
 
 const CONFIG = {
   SHOP_NAME: "Sawgrass Kings Cuts",
-  SHOP_PHONE_E164: "+19546260836", // main shop line
-  SHOP_PHONE_DISPLAY: "(954) 626-0836", // shown on page
+  SHOP_PHONE_E164: "+17542452950", // main shop line
+  SHOP_PHONE_DISPLAY: "(754) 245-2950", // shown on page
   SHOP_EMAIL: "info@sawgrasskingscuts.com",
   ADMIN_PIN: "1234", // <- change (client-side only)
   SLOT_MINUTES: 30,
