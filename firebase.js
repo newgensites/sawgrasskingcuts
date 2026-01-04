@@ -5,6 +5,7 @@ import {
   deleteDoc,
   doc,
   getFirestore,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -53,6 +54,21 @@ function initFirebase() {
 
 initFirebase();
 
+async function firebaseHealthCheck() {
+  try {
+    const database = initFirebase();
+    if (!database) return false;
+
+    const pingRef = doc(database, "_health", "ping");
+    await setDoc(pingRef, { ts: serverTimestamp() }, { merge: true });
+    const snap = await getDoc(pingRef);
+    return snap.exists();
+  } catch (err) {
+    console.warn("Firebase health check failed", err);
+    return false;
+  }
+}
+
 function isFirebaseReady() {
   return firebaseReady && !!db;
 }
@@ -60,8 +76,10 @@ function isFirebaseReady() {
 export {
   addDoc,
   db,
+  firebaseHealthCheck,
   firebaseReady,
   isFirebaseReady,
+  getDoc,
   collection,
   deleteDoc,
   doc,
