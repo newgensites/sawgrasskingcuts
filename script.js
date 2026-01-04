@@ -1,7 +1,6 @@
 import {
   db,
   isFirebaseReady,
-  addDoc,
   collection,
   deleteDoc,
   doc,
