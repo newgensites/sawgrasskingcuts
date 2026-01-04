@@ -32,6 +32,7 @@ const LS = {
   overridesByBarber: "vb_overrides_by_barber_v1", // { barberId: { date: { dayOff, blocked } } }
   queueByBarber: "vb_queue_by_barber_v1",     // { barberId: [ queueItem ] }
   adminUnlocked: "vb_admin_unlocked_v1",
+  barberUnlocks: "vb_barber_unlocks_v1",       // { barberId: true }
   gallery: "vb_gallery_v2",                   // [ {id, caption, imageData} ]
   legacyBookings: "vb_bookings_v2",
   legacyOverrides: "vb_overrides_v2",
@@ -41,12 +42,27 @@ const LS = {
 // older gallery keys that may contain photos from previous visits/devices
 const LEGACY_GALLERY_KEYS = ["vb_gallery", "vb_photos", "vb_gallery_v0"];
 
-const SYNC_KEYS = new Set([LS.bookingsByBarber, LS.overridesByBarber, LS.queueByBarber, LS.gallery, LS.barbers]);
+const SYNC_KEYS = new Set([LS.bookingsByBarber, LS.overridesByBarber, LS.queueByBarber, LS.gallery, LS.barbers, LS.barberUnlocks]);
 
 /* ----------------- helpers ----------------- */
 const $ = (sel) => document.querySelector(sel);
 
 function pad(n){ return String(n).padStart(2,"0"); }
+
+function formatPin(pin){
+  const cleaned = String(pin || "").replace(/\D/g, "");
+  if(!cleaned) return "";
+  return cleaned.slice(-4).padStart(4, "0");
+}
+
+function generateBarberPin(existingPins=new Set()){
+  let pin = "";
+  do {
+    pin = String(Math.floor(1000 + Math.random() * 9000));
+  } while(existingPins.has(pin));
+  existingPins.add(pin);
+  return pin;
+}
 
 function todayISO(){
   const d = new Date();
@@ -128,7 +144,7 @@ function saveJSON(key, val){
 function clampDateInputs(){
   const min = MIN_DATE;
   const max = MAX_DATE;
-  ["#bDate","#qDate","#aDate"].forEach(id=>{
+  ["#bDate","#qDate","#aDate","#bdDate"].forEach(id=>{
     const el = $(id);
     if(!el) return;
     el.min = min;
@@ -199,15 +215,31 @@ function migrateLegacyGallery(raw){
   return photos || [];
 }
 
+function ensureBarberPins(list){
+  const pins = new Set();
+  return (Array.isArray(list) ? list : []).map((b)=>{
+    let pin = formatPin(b.pin);
+    if(!pin || pins.has(pin)){
+      pin = generateBarberPin(pins);
+    } else {
+      pins.add(pin);
+    }
+    return { ...b, pin };
+  });
+}
+
 function defaultBarbers(){
   const now = Date.now();
-  return Array.from({ length: 4 }).map((_, idx)=>({
+  const usedPins = new Set();
+  const base = Array.from({ length: 4 }).map((_, idx)=>({
     id: `barber-${idx+1}`,
     name: `Barber ${idx+1}`,
     label: "",
     active: true,
     createdAt: now + idx,
+    pin: generateBarberPin(usedPins),
   }));
+  return ensureBarberPins(base);
 }
 
 function migrateLegacyStructures(){
@@ -215,6 +247,14 @@ function migrateLegacyStructures(){
   if(!Array.isArray(barbers) || barbers.length === 0){
     barbers = defaultBarbers();
     saveJSON(LS.barbers, barbers);
+  }
+
+  const pinnedBarbers = ensureBarberPins(barbers);
+  if(JSON.stringify(pinnedBarbers) !== JSON.stringify(barbers)){
+    barbers = pinnedBarbers;
+    saveJSON(LS.barbers, barbers);
+  } else {
+    barbers = pinnedBarbers;
   }
 
   const defaultBarberId = barbers[0]?.id || "barber-1";
@@ -246,10 +286,12 @@ function migrateLegacyStructures(){
 const state = {
   ...migrateLegacyStructures(),
   gallery: migrateLegacyGallery(loadJSON(LS.gallery, [])),
+  barberUnlocked: loadJSON(LS.barberUnlocks, {}),
   selected: {
     bookingBarberId: null,
     queueBarberId: null,
     adminBarberId: null,
+    deskBarberId: null,
   },
 };
 
@@ -270,7 +312,7 @@ function getBarbers(){
   return Array.isArray(state.barbers) ? state.barbers : [];
 }
 function setBarbers(list, opts={ skipLocal:false }){
-  state.barbers = Array.isArray(list) ? list : [];
+  state.barbers = ensureBarberPins(Array.isArray(list) ? list : []);
   if(!opts.skipLocal) saveJSON(LS.barbers, state.barbers);
 }
 
@@ -286,6 +328,11 @@ function setSelectedBarberId(kind, id){
 function getActiveBarberFallback(){
   const active = getBarbers().filter(b=> b.active !== false);
   return active[0]?.id || getBarbers()[0]?.id || "barber-1";
+}
+
+function getBarberPin(barberId){
+  const barber = getBarbers().find(b=> b.id === barberId);
+  return formatPin(barber?.pin);
 }
 
 function getBookings(barberId){
@@ -444,6 +491,7 @@ async function saveQueueItem(item){
   setQueue(next, barberId);
 
   renderQueue();
+  renderBarberDeskQueue();
 }
 
 async function updateQueueItem(id, changes){
@@ -458,6 +506,7 @@ async function updateQueueItem(id, changes){
   });
 
   renderQueue();
+  renderBarberDeskQueue();
 }
 
 async function removeQueueItem(id){
@@ -468,6 +517,7 @@ async function removeQueueItem(id){
   });
 
   renderQueue();
+  renderBarberDeskQueue();
 }
 
 async function saveGalleryItem(item){
@@ -599,7 +649,10 @@ function renderBarberOptions(selectEl, barbers, includeInactive=false){
   usable.forEach(b=>{
     const opt = document.createElement("option");
     opt.value = b.id;
-    opt.textContent = b.label ? `${b.name} (${b.label})` : b.name;
+    const baseLabel = b.label ? `${b.name} (${b.label})` : b.name;
+    opt.textContent = selectEl.id === "barberDeskBarber"
+      ? `${baseLabel} • PIN ${getBarberPin(b.id)}`
+      : baseLabel;
     selectEl.appendChild(opt);
   });
 }
@@ -610,6 +663,15 @@ function syncBarberSelections(){
   }
   const barbers = getBarbers();
   const active = barbers.filter(b=> b.active !== false);
+  const allowedIds = new Set(barbers.map(b=> b.id));
+  const unlocked = {};
+  Object.entries(state.barberUnlocked || {}).forEach(([id, val])=>{
+    if(allowedIds.has(id) && val){
+      unlocked[id] = true;
+    }
+  });
+  state.barberUnlocked = unlocked;
+  saveJSON(LS.barberUnlocks, unlocked);
 
   if(getSelectedBarberId("booking") && !active.some(b=> b.id === getSelectedBarberId("booking"))){
     setSelectedBarberId("booking", null);
@@ -620,18 +682,26 @@ function syncBarberSelections(){
   if(!getSelectedBarberId("admin") || !barbers.some(b=> b.id === getSelectedBarberId("admin"))){
     setSelectedBarberId("admin", barbers[0]?.id || null);
   }
+  if(!getSelectedBarberId("desk") || !barbers.some(b=> b.id === getSelectedBarberId("desk"))){
+    setSelectedBarberId("desk", barbers[0]?.id || null);
+  }
 
   const bookingSel = $("#bBarber");
   const queueSel = $("#qBarber");
   const adminSel = $("#aBarber");
+  const deskSel = $("#barberDeskBarber");
 
   renderBarberOptions(bookingSel, barbers);
   renderBarberOptions(queueSel, barbers, true);
   renderBarberOptions(adminSel, barbers, true);
+  renderBarberOptions(deskSel, barbers, true);
 
   if(bookingSel){ bookingSel.value = getSelectedBarberId("booking") || ""; }
   if(queueSel){ queueSel.value = getSelectedBarberId("queue") || ""; }
   if(adminSel){ adminSel.value = getSelectedBarberId("admin") || ""; }
+  if(deskSel){ deskSel.value = getSelectedBarberId("desk") || ""; }
+
+  applyBarberDeskLock();
 }
 
 /* ----------------- UI: gallery ----------------- */
@@ -736,6 +806,7 @@ function addBarberFromAdmin(){
   setSelectedBarberId("booking", id);
   setSelectedBarberId("queue", id);
   setSelectedBarberId("admin", id);
+  setSelectedBarberId("desk", id);
   syncBarberSelections();
   renderBarberManager();
   refreshAllAfterBarberChange();
@@ -1088,6 +1159,79 @@ function applyAdminLock(){
   pinNote.textContent = locked
     ? "Locked. Enter PIN to unlock."
     : "Unlocked on this device (client-side only).";
+
+  applyBarberDeskLock();
+}
+
+function getDeskBarberId(){
+  return getSelectedBarberId("desk") || $("#barberDeskBarber")?.value || getActiveBarberFallback();
+}
+
+function isBarberDeskUnlocked(barberId){
+  if(!barberId) return false;
+  return Boolean(state.barberUnlocked?.[barberId]);
+}
+
+function setBarberDeskUnlocked(barberId, unlocked){
+  if(!barberId) return;
+  const map = { ...(state.barberUnlocked || {}) };
+  if(unlocked){
+    map[barberId] = true;
+  } else {
+    delete map[barberId];
+  }
+  state.barberUnlocked = map;
+  saveJSON(LS.barberUnlocks, map);
+  applyBarberDeskLock();
+}
+
+function applyBarberDeskLock(){
+  const barberId = getDeskBarberId();
+  const unlocked = isBarberDeskUnlocked(barberId);
+  const adminLocked = !isAdminUnlocked();
+  const effectiveUnlocked = unlocked && !adminLocked;
+  document.querySelectorAll("[data-barber-desk]").forEach(el=>{
+    const shouldLock = adminLocked || !unlocked;
+    el.classList.toggle("is-locked", shouldLock);
+  });
+
+  const name = getBarbers().find(b=> b.id === barberId)?.name || "this barber";
+  const msg = adminLocked
+    ? "Admin desk is locked. Unlock admin first."
+    : unlocked ? `Unlocked for ${name}.` : "Locked. Enter the barber code to continue.";
+  const status = $("#barberDeskStatus");
+  const lockState = $("#barberDeskLockState");
+  if(status){
+    status.textContent = msg;
+    status.classList.toggle("ok", effectiveUnlocked);
+  }
+  if(lockState){
+    lockState.textContent = adminLocked ? "Admin locked" : (unlocked ? `Unlocked for ${name}` : "Locked");
+    lockState.classList.toggle("ok", effectiveUnlocked);
+  }
+
+  renderBarberDeskQueue();
+  hydrateBarberDeskTimes($("#bdDate")?.value || MIN_DATE);
+}
+
+function unlockBarberDesk(){
+  const barberId = getDeskBarberId();
+  const pin = $("#barberDeskPin").value.trim();
+  const expected = getBarberPin(barberId);
+  if(pin && expected && pin === expected){
+    setBarberDeskUnlocked(barberId, true);
+    $("#barberDeskPin").value = "";
+    $("#bdNote").textContent = "Unlocked for this barber (local to this device).";
+  } else {
+    $("#barberDeskStatus").textContent = "Wrong code.";
+  }
+}
+
+function lockBarberDesk(){
+  const barberId = getDeskBarberId();
+  setBarberDeskUnlocked(barberId, false);
+  $("#barberDeskPin").value = "";
+  $("#bdNote").textContent = "";
 }
 
 function unlockAdmin(){
@@ -1158,6 +1302,74 @@ function renderQueue(){
       const act = btn.getAttribute("data-act");
       const id = btn.getAttribute("data-id");
       handleQueueAction(act, id);
+    });
+  });
+}
+
+function renderBarberDeskQueue(){
+  const tbody = $("#barberDeskQueue");
+  if(!tbody) return;
+  const barberId = getDeskBarberId();
+  const unlocked = isBarberDeskUnlocked(barberId);
+  const q = getQueue(barberId);
+  tbody.innerHTML = "";
+
+  if(!barberId){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4" class="muted">Select a barber.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  if(!unlocked){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4" class="muted">Locked. Enter the barber code above to view this queue.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  if(q.length === 0){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4" class="muted">No queued requests yet for this barber.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  q.forEach(item=>{
+    const tr = document.createElement("tr");
+    const when = item.date && item.time ? `${item.date} @ ${formatTime12(item.time)}` : "—";
+    const service = item.requestedService || item.service || "Request";
+
+    const statusChip =
+      item.status === "approved" ? `<span class="chip ok">Approved</span>` :
+      item.status === "declined" ? `<span class="chip no">Declined</span>` :
+      `<span class="chip pending">Pending</span>`;
+
+    tr.innerHTML = `
+      <td>
+        <div style="font-weight:900">${escapeHtml(item.name)}</div>
+        <div class="muted tiny">${escapeHtml(item.phone)} • ${escapeHtml(service)}</div>
+        <div class="muted tiny">${escapeHtml(item.notes || "")}</div>
+      </td>
+      <td>${escapeHtml(when)}</td>
+      <td>${statusChip}</td>
+      <td class="right">
+        <div class="row-actions">
+          <button class="btn" data-act="confirm" data-id="${item.id}">Confirm</button>
+          <button class="ghost" data-act="decline" data-id="${item.id}">Decline</button>
+          <button class="ghost" data-act="remove" data-id="${item.id}">Remove</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll("button[data-act]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const act = btn.getAttribute("data-act");
+      const id = btn.getAttribute("data-id");
+      handleQueueAction(act, id);
+      renderBarberDeskQueue();
     });
   });
 }
@@ -1334,6 +1546,90 @@ function clearOverridesForDate(dateISO){
   refreshBookingPickers(dateISO);
 }
 
+function hydrateBarberDeskTimes(dateISO){
+  const grid = $("#bdTimes");
+  if(!grid) return;
+  grid.innerHTML = "";
+  const barberId = getDeskBarberId();
+  const unlocked = isBarberDeskUnlocked(barberId);
+
+  if(!barberId){
+    grid.innerHTML = `<div class="muted tiny">Select a barber.</div>`;
+    return;
+  }
+
+  if(!unlocked){
+    grid.innerHTML = `<div class="muted tiny">Locked. Enter the barber code above.</div>`;
+    return;
+  }
+
+  if(!dateISO){
+    grid.innerHTML = `<div class="muted tiny">Pick a date.</div>`;
+    return;
+  }
+
+  const hours = getHoursForDate(dateISO);
+  if(!hours){
+    grid.innerHTML = `<div class="muted tiny">Closed on this day (no slots).</div>`;
+    $("#bdDayOff").checked = true;
+    return;
+  }
+
+  const ov = getOverrides(barberId);
+  const entry = (ov && ov[dateISO]) ? ov[dateISO] : { dayOff:false, blocked:[] };
+  $("#bdDayOff").checked = Boolean(entry.dayOff);
+
+  const slots = generateSlots(dateISO);
+  slots.forEach(t=>{
+    const pill = document.createElement("div");
+    pill.className = "time-pill";
+    pill.textContent = formatTime12(t);
+
+    const disabled = entry.dayOff || entry.blocked.includes(t);
+    if(disabled) pill.classList.add("selected");
+
+    pill.addEventListener("click", ()=>{
+      if($("#bdDayOff").checked) return;
+      const ov2 = getOverrides(barberId);
+      if(!ov2[dateISO]) ov2[dateISO] = { dayOff:false, blocked:[] };
+      const b = new Set(ov2[dateISO].blocked || []);
+      if(b.has(t)) b.delete(t); else b.add(t);
+      ov2[dateISO].blocked = Array.from(b).sort();
+      saveOverridesRemote(ov2, barberId);
+      hydrateBarberDeskTimes(dateISO);
+      refreshBookingPickers(dateISO);
+    });
+
+    grid.appendChild(pill);
+  });
+}
+
+function saveBarberDeskDayOff(dateISO){
+  const barberId = getDeskBarberId();
+  if(!isBarberDeskUnlocked(barberId)) return;
+  const ov = getOverrides(barberId);
+  if(!ov[dateISO]) ov[dateISO] = { dayOff:false, blocked:[] };
+  ov[dateISO].dayOff = $("#bdDayOff").checked;
+  if(ov[dateISO].dayOff){
+    ov[dateISO].blocked = ov[dateISO].blocked || [];
+  }
+  saveOverridesRemote(ov, barberId);
+  hydrateBarberDeskTimes(dateISO);
+  refreshBookingPickers(dateISO);
+}
+
+function clearBarberDeskOverrides(dateISO){
+  const barberId = getDeskBarberId();
+  if(!isBarberDeskUnlocked(barberId)) return;
+  const ov = getOverrides(barberId);
+  if(ov[dateISO]){
+    delete ov[dateISO];
+    saveOverridesRemote(ov, barberId);
+  }
+  hydrateBarberDeskTimes(dateISO);
+  refreshBookingPickers(dateISO);
+}
+
 function refreshBookingPickers(dateISO){
   // refresh booking form + admin queue time picker if same date
   if($("#bDate").value === dateISO) hydrateBookingTimes(dateISO);
@@ -1446,7 +1742,7 @@ function renderBarberManager(){
     const statusText = b.active === false ? "Inactive" : "Active";
     row.innerHTML = `
       <div class="barber-main">
-        <div class="barber-name">${escapeHtml(b.name)}</div>
+        <div class="barber-name">${escapeHtml(b.name)} <span class="pin-tag">PIN ${escapeHtml(getBarberPin(b.id))}</span></div>
         <div class="muted tiny">${escapeHtml(statusText)}${b.label ? ` • ${escapeHtml(b.label)}` : ""}</div>
       </div>
       <div class="barber-controls">
@@ -1563,6 +1859,12 @@ function onStorageSync(e){
     return;
   }
 
+  if(e.key === LS.barberUnlocks){
+    state.barberUnlocked = loadJSON(LS.barberUnlocks, {});
+    applyBarberDeskLock();
+    return;
+  }
+
   // bookings/overrides impact calendar + pickers
   const bDate = $("#bDate").value;
   const qDate = $("#qDate").value;
@@ -1596,10 +1898,12 @@ async function init(){
   $("#bDate").value = min;
   $("#qDate").value = min;
   $("#aDate").value = min;
+  $("#bdDate").value = min;
 
   hydrateBookingTimes(min);
   hydrateQueueTimes(min);
   hydrateAdminTimes(min);
+  hydrateBarberDeskTimes(min);
   calendarMonthISO = monthStartISO(min);
   renderCalendar();
 
@@ -1633,6 +1937,16 @@ async function init(){
     setTimeout(()=> $("#adminSaveNote").textContent = "", 1200);
     refreshBookingPickers($("#aDate").value);
   });
+
+  // barber desk
+  $("#barberDeskBarber").addEventListener("change", (e)=>{ setSelectedBarberId("desk", e.target.value); applyBarberDeskLock(); });
+  $("#unlockBarberDesk").addEventListener("click", (e)=>{ e.preventDefault(); unlockBarberDesk(); });
+  $("#lockBarberDesk").addEventListener("click", (e)=>{ e.preventDefault(); lockBarberDesk(); });
+  $("#barberDeskPin").addEventListener("keydown", (e)=>{ if(e.key === "Enter") unlockBarberDesk(); });
+  $("#bdDate").addEventListener("change", (e)=> hydrateBarberDeskTimes(e.target.value));
+  $("#bdDayOff").addEventListener("change", ()=> saveBarberDeskDayOff($("#bdDate").value));
+  $("#bdClear").addEventListener("click", (e)=>{ e.preventDefault(); clearBarberDeskOverrides($("#bdDate").value); });
+  $("#bdSave").addEventListener("click", (e)=>{ e.preventDefault(); $("#bdNote").textContent = "Saved."; setTimeout(()=> $("#bdNote").textContent = "", 1200); refreshBookingPickers($("#bdDate").value); });
 
   // gallery uploads
   bindUploadControl("#btnTakePhoto", "#inputTakePhoto", "Photo");
