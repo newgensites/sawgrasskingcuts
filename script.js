@@ -5,8 +5,11 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
-  setDoc
+  setDoc,
+  updateDoc
 } from "./firebase.js";
 
 /* =========================================================
@@ -527,9 +530,9 @@ function startRealtimeSync(){
   setSyncStatus(true);
 
   try{
-    const bookingsRef = collection(db, "bookings");
+    const bookingsRef = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
     realtimeUnsubs.push(onSnapshot(bookingsRef, (snap)=>{
-      const items = snap.docs.map(normalizeDoc);
+      const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
       useLocalMode = false;
       showDbBanner("");
       setSyncStatus(true);
@@ -556,7 +559,7 @@ function startRealtimeSync(){
       if(qDate) hydrateQueueTimes(qDate);
     }, snapshotError));
 
-    const queueRef = collection(db, "queue");
+    const queueRef = query(collection(db, "queue"), orderBy("createdAt", "desc"));
     realtimeUnsubs.push(onSnapshot(queueRef, (snap)=>{
       const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
       useLocalMode = false;
@@ -566,7 +569,7 @@ function startRealtimeSync(){
       renderQueue();
     }, snapshotError));
 
-    const galleryRef = collection(db, "gallery");
+    const galleryRef = query(collection(db, "gallery"), orderBy("createdAt", "desc"));
     realtimeUnsubs.push(onSnapshot(galleryRef, (snap)=>{
       const items = snap.docs.map(normalizeDoc).sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
       useLocalMode = false;

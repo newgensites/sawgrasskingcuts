@@ -1,10 +1,13 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
   getFirestore,
   onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
