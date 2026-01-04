@@ -59,6 +59,30 @@ const $ = (sel) => document.querySelector(sel);
 
 function pad(n){ return String(n).padStart(2,"0"); }
 
+function sanitizePhoneDigits(phone){
+  return (phone || "").replace(/\D/g, "");
+}
+
+function toE164(phone){
+  const digits = sanitizePhoneDigits(phone);
+  if(!digits) return null;
+  if(digits.startsWith("1") && digits.length === 11) return `+${digits}`;
+  if(digits.length === 10) return `+1${digits}`;
+  return null;
+}
+
+function formatPhoneDisplay(phone){
+  const digits = sanitizePhoneDigits(phone);
+  if(digits.length === 11 && digits.startsWith("1")){
+    const p = digits.slice(1);
+    return `(${p.slice(0,3)}) ${p.slice(3,6)}-${p.slice(6)}`;
+  }
+  if(digits.length === 10){
+    return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  }
+  return phone || "Not set";
+}
+
 function todayISO(){
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -213,11 +237,13 @@ function migrateLegacyGallery(raw){
 function defaultBarbers(){
   const now = Date.now();
   const pins = ["1111", "2222", "3333", "4444"];
+  const phones = ["7542452950", "7542452951", "7542452952", "7542452953"];
   return Array.from({ length: 4 }).map((_, idx)=>({
     id: `barber-${idx+1}`,
     name: `Barber ${idx+1}`,
     label: "",
     pin: pins[idx] || String(1000 + idx),
+    phone: phones[idx] || "",
     active: true,
     createdAt: now + idx,
   }));
@@ -230,10 +256,18 @@ function enforceDefaultPins(barbers){
     "barber-3": "3333",
     "barber-4": "4444",
   };
-  return (barbers || []).map(b=> pinMap[b.id]
-    ? { ...b, pin: pinMap[b.id] }
-    : b
-  );
+  const phoneMap = {
+    "barber-1": "7542452950",
+    "barber-2": "7542452951",
+    "barber-3": "7542452952",
+    "barber-4": "7542452953",
+  };
+  return (barbers || []).map(b=>{
+    const next = { ...b };
+    if(pinMap[b.id]) next.pin = pinMap[b.id];
+    if(!next.phone && phoneMap[b.id]) next.phone = phoneMap[b.id];
+    return next;
+  });
 }
 
 function migrateLegacyStructures(){
@@ -585,11 +619,24 @@ function hydrateLinks(){
   $("#callNowCard").href = phoneHref;
   $("#callNowContact").href = phoneHref;
 
-  $("#smsHint").textContent = `Opens your text app and sends the request to ${CONFIG.SHOP_PHONE_DISPLAY}.`;
+  renderSmsHint();
   $("#year").textContent = new Date().getFullYear();
 
   // hours summary text
   $("#hoursText").textContent = "Select a date to view hours + times.";
+}
+
+function renderSmsHint(){
+  const el = $("#smsHint");
+  if(!el) return;
+  const barberId = getSelectedBarberId("booking");
+  const barber = getBarbers().find(b=> b.id === barberId);
+  const phone = formatPhoneDisplay(barber?.phone) || CONFIG.SHOP_PHONE_DISPLAY;
+  if(barber){
+    el.textContent = `Sends to ${barber.name} at ${phone}.`;
+  } else {
+    el.textContent = `Opens your text app and sends the request to ${CONFIG.SHOP_PHONE_DISPLAY}.`;
+  }
 }
 
 function setupMobileMenu(){
@@ -676,6 +723,8 @@ function syncBarberSelections(){
     const unlocked = getUnlockedBarberId();
     barberDeskSel.value = unlocked || getSelectedBarberId("admin") || barbers[0]?.id || "";
   }
+
+  renderSmsHint();
 }
 
 /* ----------------- UI: gallery ----------------- */
@@ -775,7 +824,9 @@ function addBarberFromAdmin(){
   const name = prompt("New barber name", `Barber ${barbers.length + 1}`);
   if(!name) return;
   const id = `barber-${uuid()}`;
-  barbers.push({ id, name: name.trim(), label: "", pin: String(1000 + barbers.length), active: true, createdAt: Date.now() });
+  const phoneInput = prompt("Barber phone (digits only, used for booking texts)", "");
+  const phone = sanitizePhoneDigits(phoneInput || "");
+  barbers.push({ id, name: name.trim(), label: "", pin: String(1000 + barbers.length), phone, active: true, createdAt: Date.now() });
   setBarbers(barbers);
   setSelectedBarberId("booking", id);
   setSelectedBarberId("queue", id);
@@ -955,6 +1006,8 @@ function hydrateBookingTimes(dateISO){
   $("#takenChips").innerHTML = "";
   const barberId = getSelectedBarberId("booking");
 
+  renderSmsHint();
+
   const sendBtn = $("#sendBookingText");
   if(sendBtn) sendBtn.disabled = !barberId;
 
@@ -1099,7 +1152,9 @@ Notes: ${notes || "N/A"}
 
 Please confirm if this time is available.`;
 
-  const smsUrl = `sms:${CONFIG.SHOP_PHONE_E164}?&body=${encodeURIComponent(msg)}`;
+  const targetBarber = getBarbers().find(b=> b.id === barberId);
+  const smsNumber = toE164(targetBarber?.phone) || CONFIG.SHOP_PHONE_E164;
+  const smsUrl = `sms:${smsNumber}?&body=${encodeURIComponent(msg)}`;
   window.location.href = smsUrl;
 }
 
@@ -1614,17 +1669,19 @@ function renderBarberManager(){
     const row = document.createElement("div");
     row.className = "barber-row";
     const statusText = b.active === false ? "Inactive" : "Active";
+    const phoneText = b.phone ? formatPhoneDisplay(b.phone) : "No phone saved";
     row.innerHTML = `
       <div class="barber-main">
         <div class="barber-name">${escapeHtml(b.name)}</div>
         <div class="muted tiny">${escapeHtml(statusText)}${b.label ? ` • ${escapeHtml(b.label)}` : ""}</div>
-        <div class="muted tiny">Passcode: ${escapeHtml(b.pin || "Not set")}</div>
+        <div class="muted tiny">Phone: ${escapeHtml(phoneText)} • Passcode: ${escapeHtml(b.pin || "Not set")}</div>
       </div>
       <div class="barber-controls">
         <button class="ghost tiny-btn" data-act="up" data-idx="${idx}">↑</button>
         <button class="ghost tiny-btn" data-act="down" data-idx="${idx}">↓</button>
         <button class="ghost tiny-btn" data-act="toggle" data-idx="${idx}">${b.active === false ? "Activate" : "Deactivate"}</button>
         <button class="ghost tiny-btn" data-act="rename" data-idx="${idx}">Rename</button>
+        <button class="ghost tiny-btn" data-act="phone" data-idx="${idx}">Set Phone</button>
         <button class="ghost tiny-btn" data-act="pin" data-idx="${idx}">Set PIN</button>
         <button class="ghost danger tiny-btn" data-act="delete" data-idx="${idx}">Delete</button>
       </div>
@@ -1657,6 +1714,17 @@ function renderBarberManager(){
         syncBarberSelections();
         renderBarberManager();
         refreshAllAfterBarberChange();
+      }
+
+      if(act === "phone"){
+        const nextPhone = prompt("Enter phone for this barber (digits only)", target.phone || "");
+        if(nextPhone !== null){
+          const cleaned = sanitizePhoneDigits(nextPhone);
+          barbersNow[idx] = { ...target, phone: cleaned };
+          setBarbers(barbersNow);
+          renderBarberManager();
+          renderSmsHint();
+        }
       }
 
       if(act === "pin"){
@@ -1803,7 +1871,7 @@ async function init(){
 
   // listeners
   $("#bDate").addEventListener("change", (e)=> hydrateBookingTimes(e.target.value));
-  $("#bBarber").addEventListener("change", (e)=>{ setSelectedBarberId("booking", e.target.value); refreshAllAfterBarberChange(); });
+  $("#bBarber").addEventListener("change", (e)=>{ setSelectedBarberId("booking", e.target.value); refreshAllAfterBarberChange(); renderSmsHint(); });
   $("#sendBookingText").addEventListener("click", (e)=>{ e.preventDefault(); sendBookingSMS(); });
   $("#calPrev").addEventListener("click", (e)=>{ e.preventDefault(); goToMonth(-1); });
   $("#calNext").addEventListener("click", (e)=>{ e.preventDefault(); goToMonth(1); });
