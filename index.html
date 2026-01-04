@@ -388,10 +388,13 @@
 
           <div class="panel admin-access">
             <h3>Admin access</h3>
-            <p class="muted">Enter the 4-digit PIN to unlock the booking tools.</p>
+            <p class="muted">Each barber uses their own passcode to unlock their queue and availability.</p>
             <div class="split access-row">
-              <input class="input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" />
-              <button class="btn" id="unlockAdmin">Unlock</button>
+              <select class="input" id="pinBarber"></select>
+              <input class="input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="Barber passcode" />
+            </div>
+            <div class="split access-row">
+              <button class="btn full" id="unlockAdmin">Unlock as barber</button>
             </div>
             <div class="status" id="lockStatus">Admin desk locked.</div>
             <div class="muted tiny" id="pinNote"></div>
