@@ -10,6 +10,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 // -------------------------------------------------------------
@@ -57,6 +58,7 @@ function isFirebaseReady() {
 }
 
 export {
+  addDoc,
   db,
   firebaseReady,
   isFirebaseReady,
@@ -64,6 +66,9 @@ export {
   deleteDoc,
   doc,
   onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
+  updateDoc,
 };
