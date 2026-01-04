@@ -614,6 +614,9 @@ function syncBarberSelections(){
   if(getSelectedBarberId("booking") && !active.some(b=> b.id === getSelectedBarberId("booking"))){
     setSelectedBarberId("booking", null);
   }
+  if(!getSelectedBarberId("booking")){
+    setSelectedBarberId("booking", active[0]?.id || barbers[0]?.id || null);
+  }
   if(!getSelectedBarberId("queue") || !barbers.some(b=> b.id === getSelectedBarberId("queue"))){
     setSelectedBarberId("queue", barbers[0]?.id || null);
   }
@@ -733,6 +736,9 @@ function addBarberFromAdmin(){
   const id = `barber-${uuid()}`;
   barbers.push({ id, name: name.trim(), label: "", active: true, createdAt: Date.now() });
   setBarbers(barbers);
+  setSelectedBarberId("booking", id);
+  setSelectedBarberId("queue", id);
+  setSelectedBarberId("admin", id);
   syncBarberSelections();
   renderBarberManager();
   refreshAllAfterBarberChange();
