@@ -614,9 +614,6 @@ function syncBarberSelections(){
   if(getSelectedBarberId("booking") && !active.some(b=> b.id === getSelectedBarberId("booking"))){
     setSelectedBarberId("booking", null);
   }
-  if(!getSelectedBarberId("booking")){
-    setSelectedBarberId("booking", active[0]?.id || barbers[0]?.id || null);
-  }
   if(!getSelectedBarberId("queue") || !barbers.some(b=> b.id === getSelectedBarberId("queue"))){
     setSelectedBarberId("queue", barbers[0]?.id || null);
   }
@@ -811,25 +808,30 @@ function renderCalendar(){
   const minMonth = monthStartISO(MIN_DATE);
   const maxMonth = monthStartISO(MAX_DATE);
 
-  const base = new Date(calendarMonthISO + "T00:00:00");
-  monthLabel.textContent = base.toLocaleString(undefined, { month: "long", year: "numeric" });
-  if(tzLabel){
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "local time";
-    tzLabel.textContent = `Times shown in ${tz}.`;
-  }
-  prevBtn.disabled = !hasBarber || calendarMonthISO <= minMonth;
-  nextBtn.disabled = !hasBarber || calendarMonthISO >= maxMonth;
-
-  daysWrap.innerHTML = "";
   if(calCard){ calCard.classList.toggle("is-disabled", !hasBarber); }
 
   if(!hasBarber){
+    if(monthLabel) monthLabel.textContent = "Select a barber";
+    if(tzLabel) tzLabel.textContent = "";
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    daysWrap.innerHTML = "";
     const empty = document.createElement("div");
     empty.className = "cal-empty muted tiny";
     empty.textContent = "Select a barber to see availability.";
     daysWrap.appendChild(empty);
     return;
   }
+  const base = new Date(calendarMonthISO + "T00:00:00");
+  monthLabel.textContent = base.toLocaleString(undefined, { month: "long", year: "numeric" });
+  if(tzLabel){
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "local time";
+    tzLabel.textContent = `Times shown in ${tz}.`;
+  }
+  prevBtn.disabled = calendarMonthISO <= minMonth;
+  nextBtn.disabled = calendarMonthISO >= maxMonth;
+
+  daysWrap.innerHTML = "";
   const year = base.getFullYear();
   const month = base.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
