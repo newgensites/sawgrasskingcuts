@@ -1158,25 +1158,14 @@ async function sendBookingSMS(){
   }
 
   const bookingId = uuid();
-  const bookingPayload = {
-    id: bookingId,
-    name,
-    phone,
-    service,
-    date,
-    time,
-    notes,
-    barberId,
-    status: "pending",
-    createdAt: Date.now(),
-  };
+  const createdAt = Date.now();
 
   // ensure the queue view is scoped to the same barber as the booking
   setSelectedBarberId("queue", barberId);
   const queueSelect = $("#qBarber");
   if(queueSelect) queueSelect.value = barberId;
 
-  await saveBookingRecord(bookingPayload);
+  // Only add to the request queue; do not block the slot until it's confirmed
   await saveQueueItem({
     id: bookingId,
     name,
@@ -1187,7 +1176,7 @@ async function sendBookingSMS(){
     notes,
     barberId,
     status: "pending",
-    createdAt: bookingPayload.createdAt,
+    createdAt,
   });
 
   const msg =
