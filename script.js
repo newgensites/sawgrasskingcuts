@@ -326,7 +326,6 @@ function showDbBanner() {
   // No database banner needed
 }
 
-
 function getBarbers(){
   return Array.isArray(state.barbers) ? state.barbers : [];
 }
@@ -392,10 +391,42 @@ function setQueue(q, barberId, opts={ skipLocal:false }){
   if(!opts.skipLocal) saveJSON(LS.queueByBarber, state.queueByBarber);
 }
 
-function getGalleryPhotos(){
-  return state.gallery || [];
+/* ----------------- Gallery: shared repo + local fallback ----------------- */
+function getLocalGalleryPhotos(){
+  return Array.isArray(state.gallery) ? state.gallery : [];
 }
+
+async function getRepoGalleryPhotos(){
+  try{
+    const res = await fetch("assets/recent-work/recent-work.json?v=" + Date.now(), { cache: "no-store" });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const images = await res.json();
+
+    return (images || []).map((img, idx)=>({
+      id: `repo-${idx}-${img?.src || ""}`,
+      caption: img?.alt || `Recent work ${idx + 1}`,
+      imageData: img?.src || "",
+      createdAt: Date.now(),
+      source: "repo"
+    })).filter(x => x.imageData);
+  }catch(err){
+    console.warn("Repo gallery not available yet (recent-work.json missing or not deployed).", err);
+    return [];
+  }
+}
+
+async function getGalleryPhotos(){
+  // Merge local (admin uploads on this device) + repo (global)
+  const localPhotos = getLocalGalleryPhotos().map(p => ({ ...p, source: "local" }));
+  const repoPhotos = await getRepoGalleryPhotos();
+
+  // Local first so admin-added photos show up immediately on that device,
+  // then global repo photos show for everyone.
+  return [...localPhotos, ...repoPhotos].slice(0, 9);
+}
+
 function setGalleryPhotos(arr, opts={ skipLocal:false }){
+  // Only affects LOCAL gallery (device-only). Repo gallery is controlled via GitHub commits.
   state.gallery = Array.isArray(arr) ? migrateLegacyGallery(arr) : [];
   if(!opts.skipLocal) saveJSON(LS.gallery, state.gallery);
 }
@@ -536,24 +567,27 @@ async function removeQueueItem(id){
   renderQueue();
 }
 
+/* LOCAL gallery save/remove only affects THIS DEVICE */
 async function saveGalleryItem(item){
   const payload = { ...item };
   if(!payload.id) payload.id = uuid();
   if(!payload.createdAt) payload.createdAt = Date.now();
 
-  const next = [payload, ...getGalleryPhotos().filter(p=> p.id !== payload.id)].slice(0, 9);
+  const localNow = getLocalGalleryPhotos();
+  const next = [payload, ...localNow.filter(p=> p.id !== payload.id)].slice(0, 9);
   setGalleryPhotos(next);
 
-  renderGallery();
-  renderPhotoManager();
+  await renderGallery();
+  await renderPhotoManager();
 }
 
 async function removeGalleryItem(id){
-  const next = getGalleryPhotos().filter(p=> p.id !== id);
+  const localNow = getLocalGalleryPhotos();
+  const next = localNow.filter(p=> p.id !== id);
   setGalleryPhotos(next);
 
-  renderGallery();
-  renderPhotoManager();
+  await renderGallery();
+  await renderPhotoManager();
 }
 
 /* ----------------- slots generation ----------------- */
@@ -728,12 +762,12 @@ function syncBarberSelections(){
 }
 
 /* ----------------- UI: gallery ----------------- */
-function renderGallery(){
+async function renderGallery(){
   const grid = $("#galleryGrid");
   const hint = $("#galleryHint");
   if(!grid) return;
 
-  const photos = getGalleryPhotos();
+  const photos = await getGalleryPhotos();
   grid.innerHTML = "";
 
   const items = photos.length ? photos : Array.from({ length: 6 }, ()=> null);
@@ -759,16 +793,16 @@ function renderGallery(){
 
   if(hint){
     hint.textContent = photos.length
-      ? "Recent uploads sync across devices when online. Tap to open."
-      : "No uploads yet. Add fresh cuts in the admin desk.";
+      ? "Recent Work updates on all devices after you upload + commit photos to GitHub (assets/recent-work + recent-work.json). Tap to open."
+      : "No uploads yet. Add photos to assets/recent-work and update recent-work.json.";
   }
 }
 
-function renderPhotoManager(){
+async function renderPhotoManager(){
   const list = $("#photoList");
   if(!list) return;
 
-  const photos = getGalleryPhotos();
+  const photos = await getGalleryPhotos();
   list.innerHTML = "";
 
   if(photos.length === 0){
@@ -780,15 +814,18 @@ function renderPhotoManager(){
   }
 
   photos.forEach((item, idx)=>{
+    const isRepo = String(item?.id || "").startsWith("repo-") || item?.source === "repo";
+
     const row = document.createElement("div");
     row.className = "photo-row";
     row.innerHTML = `
       <div class="photo-thumb">${item?.imageData ? `<img src="${item.imageData}" alt="Recent work ${idx + 1}">` : ""}</div>
       <div class="photo-meta">
-        <div class="tiny muted">Photo ${idx + 1}</div>
+        <div class="tiny muted">Photo ${idx + 1}${isRepo ? " • (GitHub)" : ""}</div>
         <div class="photo-actions">
           <button class="ghost tiny-btn" data-act="open" data-idx="${idx}">Open</button>
-          <button class="ghost danger tiny-btn" data-act="delete" data-idx="${idx}">Delete</button>
+          ${isRepo ? `<button class="ghost tiny-btn" disabled title="Repo photos are managed by editing assets/recent-work/recent-work.json and committing to GitHub.">Managed in GitHub</button>`
+                  : `<button class="ghost danger tiny-btn" data-act="delete" data-idx="${idx}">Delete</button>`}
         </div>
       </div>
     `;
@@ -796,10 +833,10 @@ function renderPhotoManager(){
   });
 
   list.querySelectorAll("button[data-act]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
+    btn.addEventListener("click", async ()=>{
       const idx = Number(btn.getAttribute("data-idx"));
       const act = btn.getAttribute("data-act");
-      const photosNow = getGalleryPhotos();
+      const photosNow = await getGalleryPhotos();
       const item = photosNow[idx];
 
       if(typeof item === "undefined") return;
@@ -809,10 +846,16 @@ function renderPhotoManager(){
       }
 
       if(act === "delete"){
-        const ok = confirm("Delete this photo from Recent Work?");
+        const isRepo = String(item?.id || "").startsWith("repo-") || item?.source === "repo";
+        if(isRepo){
+          alert("This photo is managed in GitHub (edit recent-work.json + commit).");
+          return;
+        }
+
+        const ok = confirm("Delete this photo from Recent Work (this device only)?");
         if(ok){
-          removeGalleryItem(item.id);
-          setPhotoUploadNote("Photo removed from Recent Work.", true);
+          await removeGalleryItem(item.id);
+          setPhotoUploadNote("Photo removed from Recent Work (local device).", true);
         }
       }
     });
@@ -856,15 +899,16 @@ function handlePhotoFile(file, sourceLabel){
   }
 
   const reader = new FileReader();
-  reader.onload = (e)=>{
+  reader.onload = async (e)=>{
     const item = {
       id: uuid(),
       caption: sourceLabel || "Gallery upload",
       imageData: e.target.result,
       createdAt: Date.now(),
+      source: "local"
     };
-    saveGalleryItem(item);
-    setPhotoUploadNote(`${sourceLabel || "Upload"} added to gallery.`, true);
+    await saveGalleryItem(item);
+    setPhotoUploadNote(`${sourceLabel || "Upload"} added to gallery (local device). To sync across devices, add images to assets/recent-work and update recent-work.json.`, true);
   };
   reader.readAsDataURL(file);
 }
@@ -1789,7 +1833,7 @@ function renderBarberManager(){
   });
 }
 
-function onStorageSync(e){
+async function onStorageSync(e){
   if(!SYNC_KEYS.has(e.key)) return;
 
   if(e.key === LS.barbers){
@@ -1813,8 +1857,8 @@ function onStorageSync(e){
 
   if(e.key === LS.gallery){
     setGalleryPhotos(loadJSON(LS.gallery, []), { skipLocal:true });
-    renderGallery();
-    renderPhotoManager();
+    await renderGallery();
+    await renderPhotoManager();
     return;
   }
 
@@ -1841,15 +1885,15 @@ function onStorageSync(e){
 }
 
 function setupStorageSync(){
-  window.addEventListener("storage", onStorageSync);
+  window.addEventListener("storage", (e)=>{ onStorageSync(e); });
 }
 
 /* ----------------- init ----------------- */
 async function init(){
   hydrateLinks();
   setupMobileMenu();
-  renderGallery();
-  renderPhotoManager();
+  await renderGallery();
+  await renderPhotoManager();
   syncBarberSelections();
   renderBarberManager();
   clampDateInputs();
@@ -1906,7 +1950,7 @@ async function init(){
     refreshBookingPickers($("#aDate").value);
   });
 
-  // gallery uploads
+  // gallery uploads (local device only)
   bindUploadControl("#btnTakePhoto", "#inputTakePhoto", "Photo");
   bindUploadControl("#btnUploadFile", "#inputUploadFile", "Upload");
   bindUploadControl("#btnCameraRoll", "#inputCameraRoll", "Camera roll");
