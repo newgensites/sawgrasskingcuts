@@ -1171,6 +1171,11 @@ async function sendBookingSMS(){
     createdAt: Date.now(),
   };
 
+  // ensure the queue view is scoped to the same barber as the booking
+  setSelectedBarberId("queue", barberId);
+  const queueSelect = $("#qBarber");
+  if(queueSelect) queueSelect.value = barberId;
+
   await saveBookingRecord(bookingPayload);
   await saveQueueItem({
     id: bookingId,
